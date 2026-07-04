@@ -5,6 +5,10 @@
     "engines": { 
         "node": ">=22.13",
         "pnpm": ">=11" 
+    },
+
+    "scripts": {
+        "typecheck": "pnpm -r --filter=./apps/* --filter=./packages/* exec tsc --noEmit"
     }
 }
     
