@@ -8,13 +8,16 @@
         "@nestjs/platform-express": "^10.4.22",
         "@nestjs/terminus": "^10.3.0",
         "@payments/shared": "workspace:*",
+        "drizzle-orm": "^0.45.2",
         "pg": "^8.22.0",
         "reflect-metadata": "^0.2.2",
-        "rxjs": "^7.8.2"
+        "rxjs": "^7.8.2",
+        "ulid": "^3.0.2"
     },
     "devDependencies": {
         "@types/node": "^22.20.0",
         "@types/pg": "^8.20.0",
+        "drizzle-kit": "^0.31.10",
         "ts-node": "^10.9.2",
         "typescript": "^5.9.3"
     },

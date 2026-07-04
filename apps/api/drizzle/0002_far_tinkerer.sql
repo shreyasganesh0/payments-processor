@@ -1,0 +1,1 @@
+ALTER TABLE "payment_events" RENAME COLUMN "occured_at" TO "occurred_at";

@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1783139001559,
+      "tag": "0000_fast_thunderbolt_ross",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783140043988,
+      "tag": "0001_naive_genesis",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783141709271,
+      "tag": "0002_far_tinkerer",
+      "breakpoints": true
+    }
+  ]
+}
