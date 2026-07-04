@@ -1,4 +1,6 @@
-export type PaymentStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "RETRYING";
+export const PAYMENT_STATUS = ["PENDING", "PROCESSING", "COMPLETED", "FAILED", "RETRYING"] as const;
+
+export type PaymentStatus = (typeof PAYMENT_STATUS)[number];
 
 const transitionMap = {
     PENDING: ["PROCESSING"],
