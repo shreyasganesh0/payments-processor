@@ -22,6 +22,27 @@
       "when": 1783141709271,
       "tag": "0002_far_tinkerer",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783196318558,
+      "tag": "0003_cynical_giant_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783198454285,
+      "tag": "0004_gigantic_harrier",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783201892250,
+      "tag": "0005_wild_magma",
+      "breakpoints": true
     }
   ]
 }

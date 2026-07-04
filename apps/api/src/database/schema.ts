@@ -1,4 +1,6 @@
-import { pgEnum, pgTable, text, bigint, integer, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import {
+    pgEnum, pgTable, text, bigint, integer, timestamp, json, jsonb, unique 
+} from 'drizzle-orm/pg-core';
 
 export const paymentStatus = pgEnum('payment_status', [
     "PENDING",
@@ -33,3 +35,14 @@ export const paymentEvents = pgTable('payment_events', {
     metadata: jsonb('metadata'),
     occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow()
 });
+
+
+export const idempotencyKeys = pgTable('idempotency_keys', {
+    customerId: text('customer_id').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    requestHash: text('request_hash').notNull(),
+    paymentId: text('payment_id').notNull().references(() => payments.id),
+    responseStatus: integer('response_status').notNull(),
+    responseBody: json('response_body'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+}, (t) => ({ uq: unique().on(t.customerId, t.idempotencyKey) }));

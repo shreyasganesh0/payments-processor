@@ -2,7 +2,9 @@
 import { Module } from "@nestjs/common";
 //import { TerminusModule } from "@nestjs/terminus";
 import { Pool } from 'pg';
-import { PG_POOL, DB_URL } from './database.constants';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { PG_POOL, DB_URL, DRIZZLE } from './database.constants';
+import * as schema from './schema';
 
 const dbProvider = [{
 
@@ -21,9 +23,16 @@ const dbProvider = [{
     },
 }];
 
+const drizzleProvider = {
+
+    provide: DRIZZLE,
+    inject: [PG_POOL],
+    useFactory: (pool: Pool) => drizzle(pool, { schema }),
+};
+
 @Module({
 
-    providers: [...dbProvider], 
-    exports: [...dbProvider]
+    providers: [...dbProvider, drizzleProvider], 
+    exports: [...dbProvider, drizzleProvider]
 })
 export class DatabaseModule{}
