@@ -10,18 +10,31 @@ export class SimulatedBankAdapter implements BankPort {
     private failCount: number = 0;
     private failN: number = 2;
     private latencyMs: number = 200;
+    private readonly store = new Map<string, BankOutcome>();
+    private charges = 0;
+
+    getCharges(): number {
+        return this.charges;
+    }
 
 
     async authorize(req: BankAuthorizeRequest): Promise<BankOutcome> {
 
         await new Promise(res => setTimeout(res, this.latencyMs)); //sim latency
         const bankRef = `bank_${req.idempotencyKey}`;
+
+        if (this.store.has(req.idempotencyKey)) return this.store.get(req.idempotencyKey)!;
         switch(this.mode) {
 
-            case 'always_authorize':
-                return { status:'authorized', bankRef: bankRef};
+            case 'always_authorize': 
+                this.charges++;
+                const outcome: BankOutcome = { status:'authorized', bankRef: bankRef};
+                this.store.set(req.idempotencyKey, outcome);
+                return outcome;
+
             case 'always_decline':
                 return { status:'declined', reason:'insufficient_funds'};
+
             case 'always_error':
                 return { status:'error', retryable:true, reason:'bank_unavailable' };
             case 'fail_n_then_authorize': 
@@ -31,7 +44,10 @@ export class SimulatedBankAdapter implements BankPort {
                     return { status:'error', retryable:true, reason:'bank_unavailable' }; 
                 } else {
                     this.failCount = 0;
-                    return { status:'authorized', bankRef: bankRef};
+                    this.charges++;
+                    const outcome: BankOutcome = { status:'authorized', bankRef: bankRef};
+                    this.store.set(req.idempotencyKey, outcome);
+                    return outcome; 
                 }
                 }
             default:
