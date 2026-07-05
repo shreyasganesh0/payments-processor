@@ -2,7 +2,7 @@ import { Injectable, Inject, NotFoundException, ConflictException } from '@nestj
 
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { ListPaymentsQueryDto } from './dto/list-payments.query.dto';
-import { payments, idempotencyKeys, outbox } from '../database/schema';
+import { payments, paymentEvents, idempotencyKeys, outbox } from '../database/schema';
 import { DRIZZLE } from '../database/database.constants';
 import { DrizzleDB } from '../database/database.types';
 
@@ -116,5 +116,16 @@ export class PaymentsService {
         const where = conds.length ? and(...conds) : undefined;
 
         return await this.db.select().from(payments).where(where).orderBy(desc(payments.id)).limit(limit + 1)
+    }
+
+
+    async list_events(id: string) {
+
+        await this.find_one(id); //existence check
+        const rows = await this.db.select().from(paymentEvents)
+            .where(eq(paymentEvents.paymentId, id))
+            .orderBy(paymentEvents.occurredAt);
+
+        return rows;
     }
 }

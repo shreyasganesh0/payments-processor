@@ -55,4 +55,20 @@ export class PaymentsController {
 
         return { data: data, nextCursor: nextCursor };
     }
+
+    @Get(':id/events')
+    async list_events(@Param('id') id: string) {
+
+        const rows = await this.payments.list_events(id);
+
+        const res = rows.map(row => { return {
+            id: row.id,
+            fromStatus: row.fromStatus,
+            toStatus: row.toStatus,
+            occurredAt: row.occurredAt,
+            metadata: row.metadata,
+            correlationId: row.correlationId,
+        }});
+        return res; 
+    }
 }
