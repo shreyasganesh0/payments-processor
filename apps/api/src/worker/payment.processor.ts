@@ -4,9 +4,10 @@ import { DrizzleDB } from '../database/database.types';
 
 import { PAYMENTS_QUEUE } from '../queue/queue.constants';
 
-import { BANK, BANK_TIMEOUT_MS } from '../bank/bank.constants';
+import { BANK, BANK_TIMEOUT_MS, BREAKER } from '../bank/bank.constants';
 import { BankPort } from '../bank/bank.types';
 import { withTimeout, BankTimeoutError } from '../bank/bank.timeout';
+import { CircuitBreaker } from '../bank/circuit-breaker';
 import {
     Inject,
 } from '@nestjs/common';
@@ -33,6 +34,7 @@ export class PaymentProcessor extends WorkerHost {
         @Inject(DRIZZLE) private readonly db: DrizzleDB,
         @Inject(BANK) private readonly bank: BankPort,
         @InjectQueue(PAYMENTS_QUEUE) private readonly queue: Queue,
+        @Inject(BREAKER) private readonly breaker: CircuitBreaker,
     ) {super();};
 
     async process(job: Job): Promise<void> {
@@ -74,6 +76,9 @@ export class PaymentProcessor extends WorkerHost {
         });
 
         let dis: Disposition;
+        if (!this.breaker.allow()) {
+            dis = { kind: 'RETRY', reason: 'circuit_open' };//short circuit to retry
+        } else {
         try {
             const outcome = await withTimeout(this.bank.authorize({
                 paymentId,
@@ -115,6 +120,10 @@ export class PaymentProcessor extends WorkerHost {
                 throw err;
             }
         }
+
+        this.breaker.record(dis.kind !== 'RETRY'); // update breaker on retries
+        }
+
 
         if (dis.kind === 'RETRY') {
 
