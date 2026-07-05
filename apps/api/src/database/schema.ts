@@ -1,5 +1,5 @@
 import {
-    pgEnum, pgTable, text, bigint, integer, timestamp, json, jsonb, unique 
+    pgEnum, pgTable, text, bigint, integer, timestamp, json, jsonb, unique, boolean
 } from 'drizzle-orm/pg-core';
 
 export const paymentStatus = pgEnum('payment_status', [
@@ -57,3 +57,11 @@ export const outbox = pgTable('outbox', {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 });
 
+export const webhookEndpoints = pgTable('webhook_endpoints', {
+    id: text('id').primaryKey(),
+    url: text('url').notNull(),
+    secret: text('secret').notNull(),
+    active: boolean('active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    description: text('description'),
+});
