@@ -46,3 +46,14 @@ export const idempotencyKeys = pgTable('idempotency_keys', {
     responseBody: json('response_body'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 }, (t) => ({ uq: unique().on(t.customerId, t.idempotencyKey) }));
+
+export const outbox = pgTable('outbox', {
+    id: text('id').primaryKey(),
+    aggregateType: text('aggregate_type').notNull(),
+    aggregateId: text('aggregate_id').notNull(),
+    eventType: text('event_type').notNull(),
+    payload: jsonb('payload').notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+});
+

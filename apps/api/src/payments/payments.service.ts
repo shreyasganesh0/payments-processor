@@ -2,7 +2,7 @@ import { Injectable, Inject, NotFoundException, ConflictException } from '@nestj
 
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { ListPaymentsQueryDto } from './dto/list-payments.query.dto';
-import { payments, idempotencyKeys } from '../database/schema';
+import { payments, idempotencyKeys, outbox } from '../database/schema';
 import { DRIZZLE } from '../database/database.constants';
 import { DrizzleDB } from '../database/database.types';
 
@@ -24,6 +24,7 @@ export class PaymentsService {
     ): Promise<{ replayed: boolean; status: number; body: PaymentRow }> {
 
         const id = ulid();
+        const outbox_id = ulid();
         const amountCents = convAmountToUnits(dto.amount);
 
         try {
@@ -47,6 +48,23 @@ export class PaymentsService {
                     responseStatus: 202,
                     responseBody: row  
                 })
+
+                const payload = {
+                    paymentId: row.id,
+                    amountCents: row.amountCents,
+                    currency: row.currency,
+                    sourceAccount: row.sourceAccount,
+                    destinationAccount: row.destinationAccount,
+                    customerId: row.customerId
+                };
+
+                await tx.insert(outbox).values({
+                    id: outbox_id,
+                    aggregateType: 'payment',
+                    aggregateId: id,
+                    eventType: 'payment.submitted',
+                    payload: payload,
+                });
                 return { replayed: false, status: 202, body: row};
             });
 
