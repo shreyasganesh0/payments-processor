@@ -1,14 +1,12 @@
-import { AppModule } from './app.module';
+import { RelayModule } from './relay/relay.module';
 import { NestFactory } from '@nestjs/core';
-import { PaymentStatus } from '@payments/shared';
 import 'reflect-metadata';
 
 async function bootstrap() {
 
-    const relay = await NestFactory.createApplicationContext(AppModule);
+    const relay = await NestFactory.createApplicationContext(RelayModule);
 
-    const status: PaymentStatus = "PENDING";
-    console.log(status);
+    relay.enableShutdownHooks();
 
     setInterval(() => console.log("relay up"), 5000);
 
