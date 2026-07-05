@@ -25,11 +25,13 @@
         "@types/pg": "^8.20.0",
         "drizzle-kit": "^0.31.10",
         "ts-node": "^10.9.2",
-        "typescript": "^5.9.3"
+        "typescript": "^5.9.3",
+        "vitest": "^4.1.9"
     },
     "scripts": {
         "start:api": "ts-node src/main.ts",
         "start:worker": "ts-node src/worker.ts",
-        "start:relay": "ts-node src/relay.ts"
+        "start:relay": "ts-node src/relay.ts",
+        "test": "vitest run"
     }
 }
