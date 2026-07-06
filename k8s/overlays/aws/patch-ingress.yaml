@@ -7,7 +7,7 @@ metadata:
   namespace: payments
 spec:
   rules:
-    - host: EC2_PUBLIC_DNS
+    - host: 54.80.13.140.nip.io
       http:
         paths:
           - path: /
@@ -16,7 +16,7 @@ spec:
               service:
                 name: web
                 port: { number: 3001 }
-    - host: api.EC2_PUBLIC_DNS
+    - host: api.54.80.13.140.nip.io
       http:
         paths:
           - path: /

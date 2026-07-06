@@ -19,7 +19,7 @@ resources:
 # (`kustomize edit set image ...` or `kubectl set image`).
 images:
   - name: payments-processor-app
-    newName: ghcr.io/OWNER/payments-processor-app
+    newName: ghcr.io/shreyasganesh0/payments-processor-app
     newTag: latest
 
 patches:
