@@ -1,4 +1,4 @@
-.PHONY: up down demo test e2e load logs clean
+.PHONY: up down demo test e2e verify load logs clean
 
 # build images and start the whole stack (postgres, valkey, migrate, api, relay, worker, web)
 up:
@@ -24,6 +24,15 @@ test:
 # black-box HTTP suite against a running stack (run `make up` first)
 e2e:
 	pnpm --filter @apps/e2e test
+
+# PRODUCTION-PARITY check: build the REAL image + run the e2e suite against the
+# compiled compose stack (same artifact + commands we deploy), then tear down.
+# This is what CI runs — "test exactly as we ship".
+verify:
+	docker compose down -v >/dev/null 2>&1 || true
+	docker compose up -d --build
+	@for i in $$(seq 1 60); do curl -sf http://localhost:3000/health/ready >/dev/null 2>&1 && break || sleep 2; done
+	@pnpm --filter @apps/e2e test; s=$$?; docker compose down -v; exit $$s
 
 # load test the API (POST inserts + GET reads) against a running stack
 load:

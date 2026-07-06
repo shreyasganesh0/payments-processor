@@ -23,4 +23,21 @@ jobs:
       - run: pnpm --filter @payments/shared build # shared resolves to dist; build before typecheck/test
       - run: pnpm typecheck
       - run: pnpm -r lint
-      - run: pnpm -r --filter='!@apps/e2e' test # e2e is black-box; needs a live stack (run via `make e2e`)
+      - run: pnpm -r --filter='!@apps/e2e' test # e2e is black-box; needs a live stack (run in the e2e job)
+
+  # Production-parity: build the REAL image and run the black-box e2e suite against
+  # the compiled compose stack (NODE_ENV=production, node dist/*.js, real migrate +
+  # CORS) — catches anything that passes under ts-node but breaks when we ship.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: make verify

@@ -61,3 +61,8 @@ export function put<T = unknown>(path: string, json?: unknown, opts: RequestOpti
 export function del<T = unknown>(path: string, opts: RequestOptions = {}) {
   return request<T>('DELETE', path, undefined, opts);
 }
+
+/** Preflight/OPTIONS — used by the CORS test to read Access-Control-* headers. */
+export function options<T = unknown>(path: string, opts: RequestOptions = {}) {
+  return request<T>('OPTIONS', path, undefined, opts);
+}
