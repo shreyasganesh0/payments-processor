@@ -1,0 +1,87 @@
+import { DRIZZLE } from '../database/database.constants';
+import { DrizzleDB } from '../database/database.types';
+import { outbox, webhookDeliveries, webhookEndpoints } from '../database/schema';
+import { WEBHOOKS_QUEUE } from '../queue/queue.constants';
+import {
+    Inject,
+    Injectable,
+    OnModuleInit,
+    OnApplicationShutdown
+} from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { inArray, isNull, and, eq } from 'drizzle-orm';
+import { ulid } from 'ulid';
+
+@Injectable()
+export class WebhookDispatcherService implements OnModuleInit, OnApplicationShutdown {
+
+    private timer?: ReturnType<typeof setTimeout>;
+
+    constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB,
+                @InjectQueue(WEBHOOKS_QUEUE) private readonly queue: Queue,
+               ) {};
+
+    async onModuleInit() {
+
+        this.scheduleNext();
+    }
+
+    private async tick() {
+
+        try { await this.poll_once(); }
+        catch(err) { console.error(err); }
+        finally { this.scheduleNext(); }
+    }
+    
+    private scheduleNext() {
+
+        this.timer = setTimeout(() => this.tick(), 5000);
+    }
+
+    private async poll_once(): Promise<number> {
+        
+        const deliveries = await this.db.transaction(async tx => {
+
+            //rows to submit
+            const events = await tx.select().from(outbox)
+            .where(and(
+                isNull(outbox.webhookDispatchedAt),
+                inArray(outbox.eventType, ['payment.completed', 'payment.failed'])
+            ))
+            .orderBy(outbox.createdAt).limit(100).for('update', { skipLocked: true});
+
+            if (events.length === 0) return [];
+
+            const endpoints = await tx.select().from(webhookEndpoints)
+                .where(eq(webhookEndpoints.active, true));
+
+            //1 delivery per event x endpoint 
+            const rows = events.flatMap(e => endpoints.map(ep => ({
+                id: ulid(),
+                endpointId: ep.id,
+                eventId: e.id,
+                eventType: e.eventType,
+                payload: e.payload,
+            })));
+            if (rows.length > 0) await tx.insert(webhookDeliveries).values(rows);
+
+            //mark all events dispatched
+            await tx.update(outbox).set({ webhookDispatchedAt: new Date() })
+                .where(inArray(outbox.id, events.map(e => e.id)));
+
+            return rows;
+        });
+
+        await Promise.all(deliveries.map(d => 
+            this.queue.add('webhook.deliver', { deliveryId: d.id }, { jobId: d.id })
+        ));
+
+        return deliveries.length;
+    }
+
+    onApplicationShutdown(signal?: string) {
+
+        clearTimeout(this.timer);
+    }
+}
