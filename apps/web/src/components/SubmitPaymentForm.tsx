@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { submitPayment, type SubmitPaymentInput } from '@/lib/api';
+import { randomId } from '@/lib/id';
 
 const DEFAULTS: SubmitPaymentInput = {
   customerId: 'C12345',
@@ -47,7 +48,7 @@ export function SubmitPaymentForm({
   onSubmitted: () => void;
 }) {
   const [form, setForm] = useState<SubmitPaymentInput>(DEFAULTS);
-  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey, setIdempotencyKey] = useState(randomId);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const createdIds = useRef<Set<string>>(new Set());
@@ -179,7 +180,7 @@ export function SubmitPaymentForm({
               />
               <button
                 type="button"
-                onClick={() => setIdempotencyKey(crypto.randomUUID())}
+                onClick={() => setIdempotencyKey(randomId())}
                 title="Generate a new key"
                 className="shrink-0 rounded-md border border-line-strong px-3 text-sm text-muted transition-colors hover:bg-panel-2 hover:text-ink"
               >
