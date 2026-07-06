@@ -33,10 +33,17 @@ RUN_DIR="${PP_RUN_DIR:-$ROOT_DIR/.run}"
 NVM_NODE="$HOME/.nvm/versions/node/v22.22.3/bin"
 [[ -d "$NVM_NODE" ]] && export PATH="$NVM_NODE:$PATH"
 
+# Load the single local config source if present (`cp .env.example .env`). These
+# are HOST values (localhost URLs), correct for the local ts-node processes. The
+# `:-` fallbacks below still apply when .env is absent, so behavior is unchanged
+# until you opt in by creating .env.
+set -a; [[ -f "$ROOT_DIR/.env" ]] && . "$ROOT_DIR/.env"; set +a
+
 export DATABASE_URL="${DATABASE_URL:-postgres://payments:payments@localhost:5432/payments}"
 export REDIS_URL="${REDIS_URL:-redis://localhost:6379}"
 
 TSNODE="$API_DIR/node_modules/.bin/ts-node"
+TSC="$API_DIR/node_modules/.bin/tsc"
 
 RELAYS="${RELAYS:-1}"
 WORKERS="${WORKERS:-1}"
@@ -131,7 +138,10 @@ sweep() {
 
 cmd="${1:-}"; [[ $# -gt 0 ]] && shift || true
 case "$cmd" in
-  up)      for s in $(instances); do start_one "$s"; done ;;
+  up)      # @payments/shared resolves to its compiled dist (main -> dist), so
+           # build it before the ts-node roles start.
+           "$TSC" -p "$ROOT_DIR/packages/shared/tsconfig.build.json" && echo "[shared] built"
+           for s in $(instances); do start_one "$s"; done ;;
   down)    for s in $(managed);   do stop_one  "$s"; done ;;
   restart) for s in "${@:-$(managed)}"; do stop_one "$s"; start_one "$s"; done ;;
   status)  status ;;

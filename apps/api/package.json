@@ -34,6 +34,7 @@
         "vitest": "^4.1.9"
     },
     "scripts": {
+        "build": "tsc -p tsconfig.build.json",
         "start:api": "ts-node src/main.ts",
         "start:worker": "ts-node src/worker.ts",
         "start:relay": "ts-node src/relay.ts",

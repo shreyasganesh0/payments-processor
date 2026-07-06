@@ -14,7 +14,7 @@ spec:
         - name: migrate
           image: payments-processor-app:latest
           imagePullPolicy: IfNotPresent
-          workingDir: /app/apps/api
-          command: ["pnpm", "exec", "drizzle-kit", "migrate"]
+          workingDir: /app
+          command: ["node", "apps/api/dist/migrate.js"]
           envFrom:
             - secretRef: { name: app-secret }

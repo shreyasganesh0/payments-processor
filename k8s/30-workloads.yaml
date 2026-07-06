@@ -21,8 +21,8 @@ spec:
         - name: api
           image: payments-processor-app:latest
           imagePullPolicy: IfNotPresent
-          workingDir: /app/apps/api
-          command: ["pnpm", "start:api"]
+          workingDir: /app
+          command: ["node", "apps/api/dist/main.js"]
           envFrom:
             - configMapRef: { name: app-config }
             - secretRef: { name: app-secret }
@@ -70,8 +70,8 @@ spec:
         - name: relay
           image: payments-processor-app:latest
           imagePullPolicy: IfNotPresent
-          workingDir: /app/apps/api
-          command: ["pnpm", "start:relay"]
+          workingDir: /app
+          command: ["node", "apps/api/dist/relay.js"]
           envFrom:
             - configMapRef: { name: app-config }
             - secretRef: { name: app-secret }
@@ -104,8 +104,8 @@ spec:
         - name: worker
           image: payments-processor-app:latest
           imagePullPolicy: IfNotPresent
-          workingDir: /app/apps/api
-          command: ["pnpm", "start:worker"]
+          workingDir: /app
+          command: ["node", "apps/api/dist/worker.js"]
           envFrom:
             - configMapRef: { name: app-config }
             - secretRef: { name: app-secret }
@@ -154,8 +154,11 @@ spec:
         - name: web
           image: payments-processor-app:latest
           imagePullPolicy: IfNotPresent
-          workingDir: /app/apps/web
-          command: ["pnpm", "start"]
+          workingDir: /app
+          command: ["node", "apps/web/server.js"]
+          env:
+            - { name: PORT, value: "3001" }
+            - { name: HOSTNAME, value: "0.0.0.0" } # Next standalone bind address
           ports:
             - containerPort: 3001
           readinessProbe:

@@ -2,16 +2,20 @@
     "name": "@payments/shared",
     "private": true,
     "version": "1.0.0",
-    "main": "./src/index.ts",
-    "types": "./src/index.ts",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
     "exports": {
-        ".": "./src/index.ts"
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        }
     },
     "devDependencies": {
         "typescript": "^5.9.3",
         "vitest": "^4.1.9"
     },
     "scripts": {
+        "build": "tsc -p tsconfig.build.json",
         "test": "vitest run"
     }
 }

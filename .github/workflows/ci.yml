@@ -20,6 +20,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @payments/shared build # shared resolves to dist; build before typecheck/test
       - run: pnpm typecheck
       - run: pnpm -r lint
       - run: pnpm -r test

@@ -49,16 +49,16 @@ services:
   migrate:
     <<: *app
     restart: "no"
-    working_dir: /app/apps/api
-    command: pnpm exec drizzle-kit migrate
+    working_dir: /app
+    command: node apps/api/dist/migrate.js
     depends_on:
       postgres:
         condition: service_healthy
 
   api:
     <<: *app
-    working_dir: /app/apps/api
-    command: pnpm start:api
+    working_dir: /app
+    command: node apps/api/dist/main.js
     ports:
       - "3000:3000"
     depends_on: *app-deps
@@ -71,22 +71,25 @@ services:
 
   relay:
     <<: *app
-    working_dir: /app/apps/api
-    command: pnpm start:relay
+    working_dir: /app
+    command: node apps/api/dist/relay.js
     depends_on: *app-deps
 
   worker:
     <<: *app
-    working_dir: /app/apps/api
-    command: pnpm start:worker
+    working_dir: /app
+    command: node apps/api/dist/worker.js
     ports:
       - "9101:9101"
     depends_on: *app-deps
 
   web:
     <<: *app
-    working_dir: /app/apps/web
-    command: pnpm start
+    working_dir: /app
+    command: node apps/web/server.js
+    environment:
+      <<: *app-env
+      PORT: "3001"
     ports:
       - "3001:3001"
     depends_on:
