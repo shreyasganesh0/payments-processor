@@ -152,9 +152,17 @@ pnpm -r test          # unit tests
 ## Performance
 
 Hot path budget: validation + one transaction (three inserts) + serialization —
-nothing external. A preliminary local reading of `POST /v1/payments` was
-p50 ≈ 3.3 ms / p95 ≈ 4.6 ms (local dev, warm). A formal autocannon run
-(30s, p50/p95/p99 + rps, stated hardware) is pending and will be published here.
+nothing external. Measured with the **full stack running** (api + relay + worker
++ Postgres + Valkey), 10 concurrent connections, 30s, warm:
+
+- `POST /v1/payments` (real inserts, unique key per request) — **p50 7.3 ms ·
+  p95 10.7 ms · p99 12.8 ms** at ~1,300 req/s, 0 errors.
+- `GET /v1/payments` — **p50 4 ms · p95 8 ms · p99 9 ms** at ~2,100 req/s.
+
+Environment: AMD Ryzen 9 7940HS, local Docker, single node per role. The submit
+path stays well under the 50 ms target *even while* the relay and worker are
+draining the resulting backlog. Reproduce with `make load` (or
+`node scripts/loadtest.mjs post|get`) against a running stack.
 
 ## Out of scope & what I'd do next
 

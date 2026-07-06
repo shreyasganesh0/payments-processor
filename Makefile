@@ -1,4 +1,4 @@
-.PHONY: up down demo test logs clean
+.PHONY: up down demo test load logs clean
 
 # build images and start the whole stack (postgres, valkey, migrate, api, relay, worker, web)
 up:
@@ -20,6 +20,11 @@ demo: up
 # run the unit test suites
 test:
 	pnpm -r test
+
+# load test the API (POST inserts + GET reads) against a running stack
+load:
+	node scripts/loadtest.mjs post
+	node scripts/loadtest.mjs get
 
 logs:
 	docker compose logs -f

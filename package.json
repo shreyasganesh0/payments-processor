@@ -2,13 +2,14 @@
     "name": "payments-processor",
     "private": true,
     "packageManager": "pnpm@11.9.0",
-    "engines": { 
+    "engines": {
         "node": ">=22.13",
-        "pnpm": ">=11" 
+        "pnpm": ">=11"
     },
-
     "scripts": {
         "typecheck": "pnpm -r --filter=./apps/* --filter=./packages/* exec tsc --noEmit"
+    },
+    "devDependencies": {
+        "autocannon": "^8.0.0"
     }
 }
-    
