@@ -33,6 +33,7 @@ coverage/
 # Local-only workflow files (kept out of the remote)
 CLAUDE.md
 docs/plan.md
+docs/ui-presentation-plan.md
 
 # local pipeline supervisor runtime (pidfiles + logs)
 .run/

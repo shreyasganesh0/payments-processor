@@ -1,4 +1,4 @@
-.PHONY: up down demo test load logs clean
+.PHONY: up down demo test e2e load logs clean
 
 # build images and start the whole stack (postgres, valkey, migrate, api, relay, worker, web)
 up:
@@ -17,9 +17,13 @@ demo: up
 	done
 	@echo "\nready → open http://localhost:3001"
 
-# run the unit test suites
+# run the unit test suites (excludes the black-box e2e package, which needs a live stack)
 test:
-	pnpm -r test
+	pnpm -r --filter='!@apps/e2e' test
+
+# black-box HTTP suite against a running stack (run `make up` first)
+e2e:
+	pnpm --filter @apps/e2e test
 
 # load test the API (POST inserts + GET reads) against a running stack
 load:

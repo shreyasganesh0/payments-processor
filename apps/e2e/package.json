@@ -1,0 +1,14 @@
+{
+    "name": "@apps/e2e",
+    "private": true,
+    "version": "1.0.0",
+    "type": "module",
+    "scripts": {
+        "test": "vitest run"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.0",
+        "typescript": "^5.9.3",
+        "vitest": "^4.1.9"
+    }
+}
