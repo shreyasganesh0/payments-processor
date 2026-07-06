@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue } from 'bullmq';
-import { payments, paymentEvents } from '../database/schema';
+import { payments, paymentEvents, outbox } from '../database/schema';
 import { ulid } from 'ulid';
 import { eq, and, sql } from 'drizzle-orm';
 
@@ -230,6 +230,21 @@ export class PaymentProcessor extends WorkerHost {
                 toStatus: dis.target,
                 metadata: dis.metadata,
                 correlationId: job.data.correlationId ?? null
+            });
+            
+            await tx.insert(outbox).values({
+              id: ulid(),
+              aggregateType: 'payment',
+              aggregateId: paymentId,
+              eventType: dis.target === 'COMPLETED' 
+                  ? 'payment.completed' 
+                  : 'payment.failed',
+              payload: { 
+                  paymentId,
+                  status: dis.target,
+                  amountCents: job.data.amountCents,
+                  currency: job.data.currency 
+              },
             });
 
         });

@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { inArray, isNull } from 'drizzle-orm';
+import { inArray, isNull, and, eq } from 'drizzle-orm';
 
 @Injectable()
 export class RelayService implements OnModuleInit, OnApplicationShutdown {
@@ -44,7 +44,10 @@ export class RelayService implements OnModuleInit, OnApplicationShutdown {
         return await this.db.transaction(async tx => {
 
             //rows to submit
-            const rows = await tx.select().from(outbox).where(isNull(outbox.publishedAt))
+            const rows = await tx.select().from(outbox)
+            .where(and(
+                isNull(outbox.publishedAt), eq(outbox.eventType, 'payment.submitted')
+            ))
             .orderBy(outbox.createdAt).limit(100).for('update', { skipLocked: true});
 
             //submit rows to queue

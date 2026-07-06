@@ -54,6 +54,7 @@ export const outbox = pgTable('outbox', {
     eventType: text('event_type').notNull(),
     payload: jsonb('payload').notNull(),
     publishedAt: timestamp('published_at', { withTimezone: true }),
+    webhookDispatchedAt: timestamp('webhook_dispatched_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 });
 
@@ -64,4 +65,22 @@ export const webhookEndpoints = pgTable('webhook_endpoints', {
     active: boolean('active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     description: text('description'),
+});
+
+export const webhookStatus = pgEnum('webhook_status',
+    ['pending', 'delivered', 'failed', 'dead']
+);
+
+export const webhookDeliveries = pgTable('webhook_deliveries', {
+    id: text('id').primaryKey(),
+    endpointId: text('endpoint_id').notNull().references(() => webhookEndpoints.id),
+    eventId: text('event_id').notNull(), // outbox event id 
+    eventType: text('event_type').notNull(),
+    payload: jsonb('payload').notNull(),
+    status: webhookStatus('status').notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }),
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    deliveredAt: timestamp('delivered_at', { withTimezone: true }),
 });
