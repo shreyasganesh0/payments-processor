@@ -9,12 +9,14 @@ import { WEBHOOKS_QUEUE } from '../queue/queue.constants';
 import { MAX_WEBHOOK_ATTEMPTS } from './webhook.constants';
 import { computeBackoffMs } from '../worker/backoff';
 import { webhookDeliveries, webhookEndpoints } from '../database/schema';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
 @Processor(WEBHOOKS_QUEUE)
 export class WebhookProcessor extends WorkerHost {
     constructor(
         @Inject(DRIZZLE) private readonly db: DrizzleDB,
         @InjectQueue(WEBHOOKS_QUEUE) private readonly queue: Queue,
+        @InjectPinoLogger(WebhookProcessor.name) private readonly logger: PinoLogger
     ) { super(); }
 
     async process(job: Job): Promise<void> {
@@ -60,6 +62,7 @@ export class WebhookProcessor extends WorkerHost {
                 body: rawBody,
                 signal: AbortSignal.timeout(5000),
             });
+   
             ok = res.ok;
             if (!ok) lastError = `HTTP ${res.status}`;
 
@@ -67,6 +70,16 @@ export class WebhookProcessor extends WorkerHost {
 
             lastError = err instanceof Error ? err.message : 'delivery_error';
         }
+        this.logger.info(
+            { 
+                correlationId: (delivery.payload as { correlationId?: string })
+                    .correlationId,
+                deliveryId: delivery.id,
+                ok,
+                lastError
+            },
+            'webhook delivery attempt'
+        );
 
         if (ok) {
             await this.db.update(webhookDeliveries).set({

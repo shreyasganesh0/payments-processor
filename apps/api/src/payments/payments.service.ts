@@ -20,7 +20,8 @@ export class PaymentsService {
     async insert_txn(
         dto: CreatePaymentDto,
         idempotency_key: string,
-        req_hash: string
+        req_hash: string,
+        correlation_id: string
     ): Promise<{ replayed: boolean; status: number; body: PaymentRow }> {
 
         const id = ulid();
@@ -55,7 +56,8 @@ export class PaymentsService {
                     currency: row.currency,
                     sourceAccount: row.sourceAccount,
                     destinationAccount: row.destinationAccount,
-                    customerId: row.customerId
+                    customerId: row.customerId,
+                    correlationId: correlation_id
                 };
 
                 await tx.insert(outbox).values({

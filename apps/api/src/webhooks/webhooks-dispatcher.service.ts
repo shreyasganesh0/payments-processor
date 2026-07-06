@@ -12,6 +12,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { inArray, isNull, and, eq } from 'drizzle-orm';
 import { ulid } from 'ulid';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
 @Injectable()
 export class WebhookDispatcherService implements OnModuleInit, OnApplicationShutdown {
@@ -20,6 +21,7 @@ export class WebhookDispatcherService implements OnModuleInit, OnApplicationShut
 
     constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB,
                 @InjectQueue(WEBHOOKS_QUEUE) private readonly queue: Queue,
+                @InjectPinoLogger(WebhookDispatcherService.name) private readonly logger: PinoLogger
                ) {};
 
     async onModuleInit() {
@@ -57,13 +59,20 @@ export class WebhookDispatcherService implements OnModuleInit, OnApplicationShut
                 .where(eq(webhookEndpoints.active, true));
 
             //1 delivery per event x endpoint 
-            const rows = events.flatMap(e => endpoints.map(ep => ({
-                id: ulid(),
-                endpointId: ep.id,
-                eventId: e.id,
-                eventType: e.eventType,
-                payload: e.payload,
-            })));
+            const rows = events.flatMap(e => endpoints.map(ep => {
+                const id = ulid();
+                this.logger.info(
+                    { correlationId: (e.payload as { correlationId?: string }).correlationId, deliveryId: id, endpointId: ep.id },
+                    'webhook delivery created'
+                );
+                return {
+                    id: id,
+                    endpointId: ep.id,
+                    eventId: e.id,
+                    eventType: e.eventType,
+                    payload: e.payload,
+                };
+            }));
             if (rows.length > 0) await tx.insert(webhookDeliveries).values(rows);
 
             //mark all events dispatched

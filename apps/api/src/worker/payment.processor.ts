@@ -21,6 +21,8 @@ import { PaymentStatus, canTransition } from '@payments/shared';
 
 import { MAX_RETRIES } from './worker.constants';
 import { computeBackoffMs } from './backoff';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { bankAttempts } from '../metrics/worker-metrics';
 
 type Disposition = 
     | { kind: 'COMPLETE'; target: 'COMPLETED'; metadata: object }
@@ -35,6 +37,7 @@ export class PaymentProcessor extends WorkerHost {
         @Inject(BANK) private readonly bank: BankPort,
         @InjectQueue(PAYMENTS_QUEUE) private readonly queue: Queue,
         @Inject(BREAKER) private readonly breaker: CircuitBreaker,
+        @InjectPinoLogger(PaymentProcessor.name) private readonly logger: PinoLogger
     ) {super();};
 
     async process(job: Job): Promise<void> {
@@ -61,6 +64,10 @@ export class PaymentProcessor extends WorkerHost {
                     eq(payments.status, row.status)
                 )
             ).returning();
+            this.logger.info(
+                { correlationId: job.data.correlationId, paymentId },
+                'worker claimed payment'
+            );
 
             if (rows.length === 0) return;
 
@@ -77,6 +84,7 @@ export class PaymentProcessor extends WorkerHost {
 
         let dis: Disposition;
         if (!this.breaker.allow()) {
+            bankAttempts.inc({ outcome: 'circuit_open' });
             dis = { kind: 'RETRY', reason: 'circuit_open' };//short circuit to retry
         } else {
         try {
@@ -87,7 +95,7 @@ export class PaymentProcessor extends WorkerHost {
                 idempotencyKey: paymentId //replace with actual key later
             }), BANK_TIMEOUT_MS);
 
-
+            bankAttempts.inc({ outcome: outcome.status});
             switch(outcome.status) {
 
                 case('authorized'):
@@ -115,6 +123,7 @@ export class PaymentProcessor extends WorkerHost {
         } catch(err) {
 
             if (err instanceof BankTimeoutError) {
+                bankAttempts.inc({ outcome: 'timeout' });
                 dis = { kind: 'RETRY', reason: 'bank_timeout' };
             } else {
                 throw err;
@@ -165,6 +174,14 @@ export class PaymentProcessor extends WorkerHost {
                         metadata: { reason: dis.reason, retriesExhausted: true }
                     });
 
+                    this.logger.info(
+                        { 
+                            correlationId: job.data.correlationId,
+                            paymentId,
+                            toStatus: 'FAILED' 
+                        },
+                        'payment transition'
+                    );
                     return;
                 } else {
 
@@ -195,6 +212,14 @@ export class PaymentProcessor extends WorkerHost {
                         correlationId: job.data.correlationId ?? null,
                         metadata: { reason: dis.reason, attempt }
                     });
+                    this.logger.info(
+                        { 
+                            correlationId: job.data.correlationId,
+                            paymentId,
+                            toStatus: 'RETRYING' 
+                        },
+                        'payment transition'
+                    );
                 }
             });
 
@@ -231,6 +256,14 @@ export class PaymentProcessor extends WorkerHost {
                 metadata: dis.metadata,
                 correlationId: job.data.correlationId ?? null
             });
+            this.logger.info(
+                { 
+                    correlationId: job.data.correlationId,
+                    paymentId,
+                    toStatus: dis.target
+                },
+                'payment transition'
+            );
             
             await tx.insert(outbox).values({
               id: ulid(),
@@ -243,7 +276,8 @@ export class PaymentProcessor extends WorkerHost {
                   paymentId,
                   status: dis.target,
                   amountCents: job.data.amountCents,
-                  currency: job.data.currency 
+                  currency: job.data.currency, 
+                  correlationId: job.data.correlationId ?? null,
               },
             });
 

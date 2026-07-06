@@ -33,6 +33,10 @@ export class CircuitBreaker {
         }
     }
 
+    getState(): CircuitState {
+        return this.state;
+    }
+
     record(success: boolean): void {
 
         if (success) {

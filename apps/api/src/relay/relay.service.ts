@@ -12,6 +12,7 @@ import {
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { inArray, isNull, and, eq } from 'drizzle-orm';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
 @Injectable()
 export class RelayService implements OnModuleInit, OnApplicationShutdown {
@@ -20,6 +21,7 @@ export class RelayService implements OnModuleInit, OnApplicationShutdown {
 
     constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB,
                 @InjectQueue(PAYMENTS_QUEUE) private readonly queue: Queue,
+                @InjectPinoLogger(RelayService.name) private readonly logger: PinoLogger
                ) {};
 
     async onModuleInit() {
@@ -51,8 +53,17 @@ export class RelayService implements OnModuleInit, OnApplicationShutdown {
             .orderBy(outbox.createdAt).limit(100).for('update', { skipLocked: true});
 
             //submit rows to queue
-            await Promise.all(rows.map(row => 
-                this.queue.add(row.eventType, row.payload, { jobId: row.id })));
+            await Promise.all(rows.map(row => {
+                this.logger.info(
+                    {
+                        correlationId: (row.payload as { correlationId?: string }).correlationId,
+                        outboxId: row.id,
+                        eventType: row.eventType
+                    },
+                    'relay published event'
+                );
+                return this.queue.add(row.eventType, row.payload, { jobId: row.id });
+            }));
 
             const published_ids = rows.map(row => row.id);
 
