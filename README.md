@@ -83,6 +83,10 @@ scripts/pipeline.sh up                     # api + relay + worker
 pnpm --filter @apps/web dev                # console on :3001
 ```
 
+**Kubernetes** — manifests for a cluster deploy (a Deployment per role with
+`replicas: N`, a migration Job, ConfigMap/Secret, Ingress, and an HPA that scales
+the worker on queue depth) live in [`k8s/`](k8s/).
+
 ## Demo script
 
 1. **Submit** a payment from the console → watch it move `PENDING → PROCESSING →
@@ -170,4 +174,5 @@ draining the resulting backlog. Reproduce with `make load` (or
   models the feed).
 - A real NACHA-batching bank adapter behind the existing bank port.
 - Idempotency-key TTL sweeper; outbox partitioning/cleanup; read replicas for GETs.
-- K8s manifests (probes wired to the real health checks, HPA on queue depth).
+- Wire the HPA's queue-depth metric through a live Prometheus Adapter (manifests
+  in `k8s/` are ready; the adapter is a cluster prerequisite).

@@ -1,0 +1,178 @@
+# The four app roles, all from the one image (payments-processor-app), each with
+# a different command — same pattern as docker-compose. Build the image and load
+# it into the cluster first (see k8s/README.md).
+
+# ─── API (public, replicas scale for read/submit throughput) ──────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: payments
+  labels: { app: api }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: api }
+  template:
+    metadata:
+      labels: { app: api }
+    spec:
+      containers:
+        - name: api
+          image: payments-processor-app:latest
+          imagePullPolicy: IfNotPresent
+          workingDir: /app/apps/api
+          command: ["pnpm", "start:api"]
+          envFrom:
+            - configMapRef: { name: app-config }
+            - secretRef: { name: app-secret }
+          ports:
+            - containerPort: 3000
+          livenessProbe:
+            httpGet: { path: /health/live, port: 3000 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health/ready, port: 3000 }
+            initialDelaySeconds: 20
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: payments
+spec:
+  selector: { app: api }
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+# ─── Relay (background outbox publisher; SKIP LOCKED makes N-wide safe) ────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: relay
+  namespace: payments
+  labels: { app: relay }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: relay }
+  template:
+    metadata:
+      labels: { app: relay }
+    spec:
+      containers:
+        - name: relay
+          image: payments-processor-app:latest
+          imagePullPolicy: IfNotPresent
+          workingDir: /app/apps/api
+          command: ["pnpm", "start:relay"]
+          envFrom:
+            - configMapRef: { name: app-config }
+            - secretRef: { name: app-secret }
+          # No inbound port and no HTTP health endpoint (it is a poll loop); K8s
+          # restarts the container on crash. The dispatcher + reaper ride here too.
+          resources:
+            requests: { cpu: 50m, memory: 256Mi }
+            limits: { memory: 512Mi }
+---
+# ─── Worker (CAS state machine + bank; the HPA target) ────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: payments
+  labels: { app: worker }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: worker }
+  template:
+    metadata:
+      labels: { app: worker }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9101"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: worker
+          image: payments-processor-app:latest
+          imagePullPolicy: IfNotPresent
+          workingDir: /app/apps/api
+          command: ["pnpm", "start:worker"]
+          envFrom:
+            - configMapRef: { name: app-config }
+            - secretRef: { name: app-secret }
+          ports:
+            - name: metrics
+              containerPort: 9101
+          livenessProbe:
+            httpGet: { path: /metrics, port: 9101 }
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
+---
+# headless service so Prometheus discovers + scrapes each worker pod individually
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-metrics
+  namespace: payments
+  labels: { app: worker }
+spec:
+  clusterIP: None
+  selector: { app: worker }
+  ports:
+    - name: metrics
+      port: 9101
+      targetPort: 9101
+---
+# ─── Web console ──────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: payments
+  labels: { app: web }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: web }
+  template:
+    metadata:
+      labels: { app: web }
+    spec:
+      containers:
+        - name: web
+          image: payments-processor-app:latest
+          imagePullPolicy: IfNotPresent
+          workingDir: /app/apps/web
+          command: ["pnpm", "start"]
+          ports:
+            - containerPort: 3001
+          readinessProbe:
+            httpGet: { path: /, port: 3001 }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 256Mi }
+            limits: { memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: payments
+spec:
+  selector: { app: web }
+  ports:
+    - port: 3001
+      targetPort: 3001

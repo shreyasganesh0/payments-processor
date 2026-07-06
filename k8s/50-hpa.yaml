@@ -1,0 +1,40 @@
+# Autoscale the worker on QUEUE DEPTH — the payments_queue_depth gauge the API
+# already exposes at /metrics (Part 6). Scale up toward one worker per ~50 jobs
+# waiting; scale down conservatively.
+#
+# Prerequisite: an external-metrics provider. With the Prometheus Adapter, expose
+# the gauge as an external metric, e.g. in the adapter's `externalRules`:
+#
+#   - seriesQuery: 'payments_queue_depth{queue="payments",state="waiting"}'
+#     name: { as: "payments_queue_depth" }
+#     metricsQuery: 'sum(<<.Series>>{<<.LabelMatchers>>})'
+#
+# Without an adapter the HPA stays at minReplicas (the design still runs; only
+# autoscaling is inert). Worker N-safety is proven in NOTES.md "Horizontal scaling".
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker
+  namespace: payments
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: payments_queue_depth
+          selector:
+            matchLabels:
+              queue: payments
+              state: waiting
+        target:
+          type: AverageValue
+          averageValue: "50"
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 120

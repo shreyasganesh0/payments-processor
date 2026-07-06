@@ -1,0 +1,20 @@
+# Applies pending migrations before the app processes traffic.
+# Run to completion first: `kubectl -n payments wait --for=condition=complete job/migrate`.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: payments
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: payments-processor-app:latest
+          imagePullPolicy: IfNotPresent
+          workingDir: /app/apps/api
+          command: ["pnpm", "exec", "drizzle-kit", "migrate"]
+          envFrom:
+            - secretRef: { name: app-secret }

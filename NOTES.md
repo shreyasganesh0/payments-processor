@@ -82,5 +82,5 @@ isn't.
 - **DLQ replay** — dead webhook deliveries need a manual/scripted replay path.
 - **Idempotency-key TTL sweeper** and **outbox cleanup/partitioning** for
   long-running operation.
-- **K8s manifests** (probes wired to the real health checks, HPA on queue depth)
-  are a stretch, not built.
+- **HPA queue-depth metric** — the `k8s/` HPA is written but needs a live
+  Prometheus Adapter (a cluster prerequisite) to actually autoscale.
