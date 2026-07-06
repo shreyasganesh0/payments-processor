@@ -10,6 +10,14 @@ account; the repo provides the manifests, image, and pipeline.
 > a **t3.small** (~$15/mo, or new-account promo credits) is reliable; t3.micro is
 > too tight. **Do the teardown at the end** or you will be billed.
 
+> **Learned the hard way.** The `ts-node` image is ~1.4 GB and four Node pods +
+> k3s need ~3 GB, so a **2 GB t3.small thrashes** (SSH stops responding). Use a
+> t3.medium (4 GB), add a swapfile, or slim the image (multi-stage: compile
+> TS→JS, prune dev deps, Next standalone output) before trying t3.small. Two more
+> gotchas:
+> - Apply with `kubectl kustomize --load-restrictor=LoadRestrictionsNone k8s/overlays/aws | kubectl apply -f -` — the overlay references parent `k8s/` files, which kustomize's default restrictor blocks.
+> - The AWS EC2 DNS has no subdomains, so for host-based ingress use **nip.io**: `<ip>.nip.io` (web) and `api.<ip>.nip.io` (api) both resolve to the instance IP with zero DNS setup.
+
 ## 0. Prereqs
 - An AWS account + the `aws` CLI configured (`aws configure`).
 - This repo pushed to GitHub (for CD).

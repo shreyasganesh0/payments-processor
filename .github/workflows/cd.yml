@@ -45,7 +45,9 @@ jobs:
 
       - name: Render manifests with the new image
         run: |
-          (cd k8s/overlays/aws && kubectl kustomize .) \
+          # --load-restrictor: the overlay references parent k8s/ files, which
+          # kustomize's default (root-only) restrictor blocks.
+          kubectl kustomize --load-restrictor=LoadRestrictionsNone k8s/overlays/aws \
             | sed -E "s#image: ghcr\.io/[^/]+/payments-processor-app:[^[:space:]]+#image: ${{ steps.img.outputs.ref }}#g" \
             > manifests.yaml
 
