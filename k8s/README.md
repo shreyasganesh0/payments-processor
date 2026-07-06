@@ -6,8 +6,10 @@ in-cluster Postgres + Valkey, an Ingress, and an HPA that scales the worker on
 queue depth. Config comes from a ConfigMap + Secret that map 1:1 onto the
 `config.ts` env vars (ADR-013).
 
-- `00-namespace-config.yaml` — namespace, ConfigMap (non-secret), Secret (DB URL + password)
+- `00-namespace.yaml` — namespace + ConfigMap (non-secret config)
+- `05-secret.yaml` — Secret (local/demo creds; replaced out-of-band in prod)
 - `10-datastores.yaml` — Postgres + Valkey (delete in prod; use managed services)
+- `overlays/aws/` — Kustomize overlay for an AWS free-tier deploy (managed datastores, GHCR image, real ingress host)
 - `20-migrate-job.yaml` — runs `drizzle-kit migrate`
 - `30-workloads.yaml` — api/relay/worker/web Deployments + Services
 - `40-ingress.yaml` — public entry for web + api

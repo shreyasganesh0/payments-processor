@@ -1,0 +1,72 @@
+name: CD
+
+# Manual until the AWS infra + repo secrets (EC2_HOST/EC2_USER/EC2_SSH_KEY,
+# var PUBLIC_API_BASE) are in place — see k8s/overlays/aws/README.md. To enable
+# auto-deploy on merge, uncomment the `push` trigger below (CI already gates PRs).
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # push to GHCR
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: img
+        run: echo "ref=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/payments-processor-app:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # NEXT_PUBLIC_API_BASE is inlined into the web bundle at build time (ADR-013),
+      # so it must be the PUBLIC api host — set repo variable PUBLIC_API_BASE.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.img.outputs.ref }}
+          build-args: |
+            NEXT_PUBLIC_API_BASE=${{ vars.PUBLIC_API_BASE }}
+
+      - uses: azure/setup-kubectl@v4
+
+      - name: Render manifests with the new image
+        run: |
+          (cd k8s/overlays/aws && kubectl kustomize .) \
+            | sed -E "s#image: ghcr\.io/[^/]+/payments-processor-app:[^[:space:]]+#image: ${{ steps.img.outputs.ref }}#g" \
+            > manifests.yaml
+
+      # SSH to the k3s box, migrate with the new image, then roll out. The
+      # `app-secret` (RDS/ElastiCache creds) already exists on the cluster.
+      - name: Deploy to k3s
+        env:
+          IMG: ${{ steps.img.outputs.ref }}
+          HOST: ${{ secrets.EC2_HOST }}
+          SSH_USER: ${{ secrets.EC2_USER }}
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          echo "$SSH_KEY" > key && chmod 600 key
+          SSH="ssh -o StrictHostKeyChecking=no -i key ${SSH_USER}@${HOST}"
+          scp -o StrictHostKeyChecking=no -i key manifests.yaml "${SSH_USER}@${HOST}:/tmp/manifests.yaml"
+          $SSH bash -euo pipefail <<EOF
+            # migrations with the new image, run to completion
+            kubectl -n payments run migrate-$(date +%s) --rm -i --restart=Never --image=$IMG \
+              --overrides='{"spec":{"containers":[{"name":"m","image":"$IMG","workingDir":"/app/apps/api","command":["pnpm","exec","drizzle-kit","migrate"],"envFrom":[{"secretRef":{"name":"app-secret"}}]}]}}'
+            # rolling update to the new image (readiness-gated, no downtime)
+            kubectl apply -f /tmp/manifests.yaml
+            kubectl -n payments rollout status deploy/api --timeout=180s
+            kubectl -n payments rollout status deploy/worker --timeout=180s
+          EOF

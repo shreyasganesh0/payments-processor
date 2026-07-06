@@ -9,9 +9,11 @@ WORKDIR /app
 COPY . .
 RUN pnpm install --frozen-lockfile
 
-# pre-build the Next.js console; the API base is baked in at build time and
-# must be reachable from the browser (host), hence localhost:3000.
-ENV NEXT_PUBLIC_API_BASE=http://localhost:3000
+# pre-build the Next.js console; the API base is baked in at build time (ADR-013),
+# so CD supplies it as a build arg (defaults to localhost for local builds):
+#   docker build --build-arg NEXT_PUBLIC_API_BASE=https://api.example.com .
+ARG NEXT_PUBLIC_API_BASE=http://localhost:3000
+ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
 RUN pnpm --filter @apps/web build
 
 # default; overridden per service in docker-compose.yml

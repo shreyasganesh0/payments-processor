@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: payments
+
+# Base app resources. NOT included:
+#   10-datastores.yaml — Postgres/Redis are MANAGED (RDS + ElastiCache)
+#   05-secret.yaml     — `app-secret` is created on the cluster out-of-band with
+#                        the real RDS/ElastiCache URLs (see README) so credentials
+#                        never live in git.
+resources:
+  - ../../00-namespace.yaml
+  - ../../20-migrate-job.yaml
+  - ../../30-workloads.yaml
+  - ../../40-ingress.yaml
+  - ../../50-hpa.yaml
+
+# Every workload runs the GHCR image; CD overrides newTag with the git SHA
+# (`kustomize edit set image ...` or `kubectl set image`).
+images:
+  - name: payments-processor-app
+    newName: ghcr.io/OWNER/payments-processor-app
+    newTag: latest
+
+patches:
+  - path: patch-config.yaml
+  - path: patch-ingress.yaml

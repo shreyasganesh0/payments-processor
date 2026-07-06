@@ -1,0 +1,11 @@
+# Overrides the two endpoints that differ on AWS. Replace the placeholders with
+# your values (the EC2 public DNS and the ElastiCache primary endpoint).
+# DATABASE_URL lives in `app-secret`, created out-of-band (see README).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: payments
+data:
+  CORS_ORIGIN: "http://EC2_PUBLIC_DNS"
+  REDIS_URL: "redis://ELASTICACHE_ENDPOINT:6379"

@@ -1,0 +1,27 @@
+# Replace the placeholder hosts with your real ones (the EC2 public DNS, or a
+# domain pointed at it). Add TLS here once cert-manager is installed (see README).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: payments
+  namespace: payments
+spec:
+  rules:
+    - host: EC2_PUBLIC_DNS
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port: { number: 3001 }
+    - host: api.EC2_PUBLIC_DNS
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port: { number: 3000 }
