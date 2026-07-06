@@ -61,3 +61,17 @@ export interface WebhookEndpoint {
   createdAt: string;
   description: string | null;
 }
+
+export type BankMode =
+  | 'always_authorize'
+  | 'always_decline'
+  | 'always_error'
+  | 'fail_n_then_authorize';
+
+export interface BankConfig {
+  id: string;
+  mode: BankMode;
+  latencyMs: number;
+  failN: number;
+  updatedAt: string;
+}

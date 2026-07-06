@@ -4,6 +4,8 @@ import type {
   PaymentsPage,
   DeliveriesPage,
   WebhookEndpoint,
+  BankConfig,
+  BankMode,
 } from './types';
 
 export const API_BASE =
@@ -53,6 +55,33 @@ export function listDeliveries(params?: {
 
 export function listEndpoints(): Promise<WebhookEndpoint[]> {
   return get<WebhookEndpoint[]>('/v1/webhook-endpoints');
+}
+
+export function getBankConfig(): Promise<BankConfig> {
+  return get<BankConfig>('/v1/admin/bank-config');
+}
+
+export async function updateBankConfig(patch: {
+  mode?: BankMode;
+  latencyMs?: number;
+  failN?: number;
+}): Promise<BankConfig> {
+  const res = await fetch(`${API_BASE}/v1/admin/bank-config`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`;
+    try {
+      const body = await res.json();
+      detail = body.detail ?? body.title ?? body.message ?? detail;
+    } catch {
+      // non-JSON error body
+    }
+    throw new Error(detail);
+  }
+  return res.json();
 }
 
 export async function createEndpoint(
