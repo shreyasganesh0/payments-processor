@@ -5,6 +5,7 @@ import {
     OnApplicationShutdown,
 } from '@nestjs/common';
 
+import { config } from '../config';
 import { DRIZZLE } from '../database/database.constants';
 import { DrizzleDB } from '../database/database.types';
 import { PAYMENTS_QUEUE } from '../queue/queue.constants';
@@ -15,9 +16,9 @@ import { Queue } from 'bullmq';
 import { and, inArray, lt, sql } from 'drizzle-orm';
 import { ulid } from 'ulid';
 
-const REAPER_INTERVAL_MS = 10_000;
+const REAPER_INTERVAL_MS = config.relay.reaperIntervalMs;
 // a payment stuck in PROCESSING/RETRYING longer than this is presumed stranded
-const REAPER_DEADLINE_MS = 60_000;
+const REAPER_DEADLINE_MS = config.relay.reaperDeadlineMs;
 
 // Recovery net for the strand windows in ADR-007. Runs in the relay process
 // (alongside the relay + dispatcher). Mirrors RelayService's self-scheduling

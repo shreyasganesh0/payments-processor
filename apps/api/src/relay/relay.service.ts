@@ -1,4 +1,5 @@
 
+import { config } from '../config';
 import { DRIZZLE } from '../database/database.constants';
 import { DrizzleDB } from '../database/database.types';
 import { outbox } from '../database/schema';
@@ -38,7 +39,7 @@ export class RelayService implements OnModuleInit, OnApplicationShutdown {
     
     private scheduleNext() {
 
-        this.timer = setTimeout(() => this.tick(), 5000);
+        this.timer = setTimeout(() => this.tick(), config.relay.pollMs);
     }
 
     private async poll_once(): Promise<number> {

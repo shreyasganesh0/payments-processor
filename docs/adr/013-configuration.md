@@ -32,3 +32,42 @@ ConfigMap/Secret (or a PaaS env panel), this needs one source of truth.
   environment). This is documented in `.env.example`.
 - Production-required-URL validation fails fast on a missing `DATABASE_URL` /
   `REDIS_URL` instead of quietly connecting to localhost.
+
+## Amendment — config as the single plug-n-play surface
+
+Extended so future additions are localized:
+
+- **`config.ts` owns behavioral tuning too**, grouped by concern with env names
+  mirroring the group (`config.worker.maxRetries` ← `WORKER_MAX_RETRIES`). The
+  previously-scattered constants (retry/backoff, breaker, poll intervals, webhook
+  attempts, timeouts) now source their defaults from here; the `*.constants.ts`
+  files keep only identifiers (DI tokens, queue names) and thin config-sourced
+  aliases. One file to change any knob; unset env → the documented default.
+- **Validation is collected then thrown once** at module load (`env`/`num` gained
+  `required`/`oneOf`/`min`/`max`; a `bool` helper exists) — every problem at once,
+  in every process, still dependency-free.
+- **Providers are selected by config via a registry** (`common/provider-registry.ts`).
+  `BANK_ADAPTER` (validated against `BANK_ADAPTERS`) picks the bank implementation
+  in `bank.module.ts`; injection sites are untouched when it changes. Same recipe
+  is the template for a future notifier/auth strategy.
+- **Runtime-tunable config** follows the `bank_config` row + poll-sync pattern
+  (ADR-012) — a value changeable without redeploy is a DB column + a typed field.
+- **`.env` is the single local source**: `scripts/pipeline.sh` sources it and the
+  root `.env.example` documents every variable. **Caveat:** `DATABASE_URL` /
+  `REDIS_URL` legitimately differ per mode (localhost vs the `postgres`/`valkey`
+  service hostnames in compose/k8s), so each mode still supplies its own — that is
+  correct 12-factor per-environment config, not duplication. The DB password is
+  the one value expressed twice (`DATABASE_URL` and `POSTGRES_PASSWORD`); they must
+  match, and rotating it touches both.
+
+### How to add … (the plug-n-play checklist)
+
+- **a config value** → add a field in `config.ts` (with validation opts) + a line
+  in `.env.example`. It is now readable in every process and every mode.
+- **a pluggable provider** (e.g. a real bank adapter) → implement the port, add
+  its key to the registry map + the `*_ADAPTERS` list, set the env var. No change
+  at any injection site.
+- **a runtime-tunable knob / feature flag** → add a column to the settings row +
+  a typed field on the in-memory holder; the poll-sync propagates it.
+- **a deployment target** → a new `k8s/overlays/<env>/` patching only the deltas;
+  base + `.env` unchanged.

@@ -1,6 +1,7 @@
 import { config } from '../config';
 
-export const BASE_MS = 1000;
-export const CAP_MS = 30_000;
-export const MAX_RETRIES = 5;
+// Named aliases sourced from the single config (ADR-013); tune via env, not here.
+export const BASE_MS = config.worker.baseBackoffMs;
+export const CAP_MS = config.worker.capBackoffMs;
+export const MAX_RETRIES = config.worker.maxRetries;
 export const WORKER_METRICS_PORT = config.metricsPort;

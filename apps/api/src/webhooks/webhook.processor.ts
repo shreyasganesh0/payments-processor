@@ -3,6 +3,7 @@ import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue } from 'bullmq';
 import { createHmac } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
+import { config } from '../config';
 import { DRIZZLE } from '../database/database.constants';
 import { DrizzleDB } from '../database/database.types';
 import { WEBHOOKS_QUEUE } from '../queue/queue.constants';
@@ -60,7 +61,7 @@ export class WebhookProcessor extends WorkerHost {
                     'x-webhook-signature': signature,
                 },
                 body: rawBody,
-                signal: AbortSignal.timeout(5000),
+                signal: AbortSignal.timeout(config.webhooks.httpTimeoutMs),
             });
    
             ok = res.ok;

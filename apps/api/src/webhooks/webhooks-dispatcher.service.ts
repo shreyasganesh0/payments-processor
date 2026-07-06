@@ -1,3 +1,4 @@
+import { config } from '../config';
 import { DRIZZLE } from '../database/database.constants';
 import { DrizzleDB } from '../database/database.types';
 import { outbox, webhookDeliveries, webhookEndpoints } from '../database/schema';
@@ -38,7 +39,7 @@ export class WebhookDispatcherService implements OnModuleInit, OnApplicationShut
     
     private scheduleNext() {
 
-        this.timer = setTimeout(() => this.tick(), 5000);
+        this.timer = setTimeout(() => this.tick(), config.webhooks.pollMs);
     }
 
     private async poll_once(): Promise<number> {

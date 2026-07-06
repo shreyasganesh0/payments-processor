@@ -5,6 +5,7 @@ import {
     OnApplicationShutdown,
 } from '@nestjs/common';
 
+import { config } from '../config';
 import { DRIZZLE } from '../database/database.constants';
 import { DrizzleDB } from '../database/database.types';
 import { BANK } from './bank.constants';
@@ -14,7 +15,7 @@ import { BANK_CONFIG_ID } from '../admin/bank-config.service';
 
 import { eq } from 'drizzle-orm';
 
-const SYNC_INTERVAL_MS = 2000;
+const SYNC_INTERVAL_MS = config.bank.syncMs;
 
 // Runs IN THE WORKER PROCESS. The chaos endpoint (API process) writes the
 // bank_config row; this poll reads it and pushes it onto the in-memory sim
