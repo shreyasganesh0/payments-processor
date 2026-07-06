@@ -19,6 +19,7 @@ async function bootstrap() {
     })); //strip unknown props from req and 400 on extra props
     app.useGlobalFilters(new ProblemDetailFilter()); //exception handling
 
+    app.enableCors({ origin: 'http://localhost:3001' });
     await app.listen(3000);
 }
 

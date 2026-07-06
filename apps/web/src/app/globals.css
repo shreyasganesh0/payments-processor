@@ -1,26 +1,63 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* surfaces */
+  --color-bg: #0a0e1a;
+  --color-panel: #111725;
+  --color-panel-2: #161d2e;
+  --color-line: #232c3d;
+  --color-line-strong: #2e3950;
+
+  /* text */
+  --color-ink: #e8ecf4;
+  --color-muted: #93a0b8;
+  --color-faint: #5d6b85;
+
+  /* accent — "flow / live" */
+  --color-flow: #34d399;
+
+  /* semantic status ramp */
+  --color-st-pending: #64748b;
+  --color-st-processing: #38bdf8;
+  --color-st-retrying: #fbbf24;
+  --color-st-completed: #34d399;
+  --color-st-failed: #fb7185;
+
+  /* type roles */
+  --font-display: var(--font-space-grotesk);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --animate-pulse-dot: pulse-dot 1.8s ease-in-out infinite;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* thin scrollbars for the console feel */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
