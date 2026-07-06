@@ -32,4 +32,7 @@ aws elasticache delete-cache-subnet-group --cache-subnet-group-name pp-subnets >
 aws ec2 delete-key-pair --key-name pp-key >/dev/null 2>&1 && echo "  key pair" || true
 rm -f ~/pp-key.pem
 
+echo "== disarm CD (so pushes don't deploy to a dead instance) =="
+command -v gh >/dev/null 2>&1 && gh secret delete EC2_HOST -R "${PP_GH_REPO:-shreyasganesh0/payments-processor}" >/dev/null 2>&1 && echo "  cleared CD EC2_HOST — CD now no-ops until up.sh re-arms it" || echo "  (gh not found / already clear)"
+
 echo "== done. Confirm the AWS Billing/EC2 console shows nothing running. =="
