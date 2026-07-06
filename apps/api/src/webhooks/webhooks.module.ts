@@ -1,6 +1,7 @@
 
 import { Module } from "@nestjs/common";
 import { WebhooksController } from "./webhooks.controller";
+import { WebhookDeliveriesController } from "./webhook-deliveries.controller";
 import { WebhooksService } from "./webhooks.service";
 import { DatabaseModule } from "../database/database.module";
 
@@ -8,6 +9,6 @@ import { DatabaseModule } from "../database/database.module";
 
     imports: [DatabaseModule],
     providers: [WebhooksService],
-    controllers: [WebhooksController]
+    controllers: [WebhooksController, WebhookDeliveriesController]
 })
 export class WebhooksModule{}

@@ -1,12 +1,13 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 
-import { webhookEndpoints } from '../database/schema';
+import { webhookEndpoints, webhookDeliveries } from '../database/schema';
 import { DRIZZLE } from '../database/database.constants';
 import { DrizzleDB } from '../database/database.types';
+import { ListDeliveriesQueryDto } from './dto/list-deliveries.query.dto';
 
 import { ulid } from 'ulid';
 import { randomBytes } from 'node:crypto';
-import { eq, getTableColumns } from 'drizzle-orm';
+import { eq, and, lt, desc, getTableColumns } from 'drizzle-orm';
 
 @Injectable()
 export class WebhooksService {
@@ -46,4 +47,25 @@ export class WebhooksService {
         return await this.db.select(rest).from(webhookEndpoints)
             .where(eq(webhookEndpoints.active, true));
     }
+
+
+    async list_deliveries({ status, cursor, limit }: ListDeliveriesQueryDto) {
+
+        // drop the heavy `payload` column; join the endpoint url for display
+        const { payload, ...rest } = getTableColumns(webhookDeliveries);
+
+        const conds = [];
+        if (status) conds.push(eq(webhookDeliveries.status, status));
+        if (cursor) conds.push(lt(webhookDeliveries.id, cursor));
+        const where = conds.length ? and(...conds) : undefined;
+
+        return await this.db.select({ ...rest, url: webhookEndpoints.url })
+            .from(webhookDeliveries)
+            .leftJoin(webhookEndpoints, eq(webhookDeliveries.endpointId, webhookEndpoints.id))
+            .where(where)
+            .orderBy(desc(webhookDeliveries.id))
+            .limit(limit + 1);
+    }
 }
+
+
