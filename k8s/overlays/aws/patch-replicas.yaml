@@ -1,0 +1,25 @@
+# Single-node t3.small (~2GB): one pod per role. Scale up (and re-add the HPA)
+# on a bigger/multi-node cluster — N-safety is proven in NOTES.md.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: payments
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: relay
+  namespace: payments
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: payments
+spec:
+  replicas: 1

@@ -12,7 +12,8 @@ resources:
   - ../../20-migrate-job.yaml
   - ../../30-workloads.yaml
   - ../../40-ingress.yaml
-  - ../../50-hpa.yaml
+  # 50-hpa.yaml excluded: it needs a Prometheus Adapter (external metrics), which
+  # we don't install on this single-node cluster.
 
 # Every workload runs the GHCR image; CD overrides newTag with the git SHA
 # (`kustomize edit set image ...` or `kubectl set image`).
@@ -24,3 +25,4 @@ images:
 patches:
   - path: patch-config.yaml
   - path: patch-ingress.yaml
+  - path: patch-replicas.yaml
