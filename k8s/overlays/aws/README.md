@@ -49,9 +49,13 @@ On the EC2 (with `kubectl` from k3s), create `app-secret` from your managed URLs
 ```bash
 kubectl create namespace payments
 kubectl -n payments create secret generic app-secret \
-  --from-literal=DATABASE_URL='postgres://payments:PASSWORD@RDS_ENDPOINT:5432/payments?sslmode=require' \
+  --from-literal=DATABASE_URL='postgres://payments:PASSWORD@RDS_ENDPOINT:5432/payments?sslmode=no-verify' \
   --from-literal=POSTGRES_PASSWORD='PASSWORD'
 ```
+> `sslmode=no-verify`: RDS requires SSL, but its cert is signed by the AWS RDS CA
+> (not in Node's default bundle), so `sslmode=require` fails with
+> `SELF_SIGNED_CERT_IN_CHAIN`. `no-verify` encrypts without CA verification — fine
+> for a demo; for stricter setups mount the RDS CA bundle and use `verify-full`.
 
 ## 4. Point the overlay at your endpoints
 Edit the two placeholders (commit these — they're not secrets):

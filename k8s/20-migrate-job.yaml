@@ -16,5 +16,8 @@ spec:
           imagePullPolicy: IfNotPresent
           workingDir: /app
           command: ["node", "apps/api/dist/migrate.js"]
+          # config.ts validates ALL vars at load (not just DATABASE_URL), so the
+          # migrate pod needs the ConfigMap too or it fails on missing REDIS_URL.
           envFrom:
+            - configMapRef: { name: app-config }
             - secretRef: { name: app-secret }
