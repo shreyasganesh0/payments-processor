@@ -5,6 +5,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
 import { LoggerModule } from 'nestjs-pino';
 import { PrometheusModule } from '@willsoto/nestjs-prometheus';
 import { MetricsModule } from './metrics/metrics.module';
+import { AdminModule } from './admin/admin.module';
 import { ulid } from 'ulid';
 
 const prometheusModule = PrometheusModule.register();
@@ -22,6 +23,6 @@ const logger = LoggerModule.forRoot({
 
 @Module({
 
-    imports: [HealthModule, PaymentsModule, WebhooksModule, prometheusModule, MetricsModule, logger]
+    imports: [HealthModule, PaymentsModule, WebhooksModule, prometheusModule, MetricsModule, AdminModule, logger]
 })
 export class AppModule{}

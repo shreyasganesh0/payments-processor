@@ -84,3 +84,20 @@ export const webhookDeliveries = pgTable('webhook_deliveries', {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     deliveredAt: timestamp('delivered_at', { withTimezone: true }),
 });
+
+// chaos control — simulated-bank config, read by the worker's bank adapter
+// via a poll-sync so the API can flip it cross-process. Single row (id='singleton').
+export const bankMode = pgEnum('bank_mode', [
+    'always_authorize',
+    'always_decline',
+    'always_error',
+    'fail_n_then_authorize',
+]);
+
+export const bankConfig = pgTable('bank_config', {
+    id: text('id').primaryKey(),
+    mode: bankMode('mode').notNull().default('always_authorize'),
+    latencyMs: integer('latency_ms').notNull().default(200),
+    failN: integer('fail_n').notNull().default(2),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
