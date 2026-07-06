@@ -60,28 +60,28 @@ links to the decisions lives at **`/architecture`** in the console.
 
 ## Quickstart
 
-Prerequisites: Node ≥ 22.13, pnpm 11, Docker.
+Prerequisites: Docker (plus Node ≥ 22.13 + pnpm 11 for the dev workflow).
+
+**One command** builds and runs the whole stack — Postgres, Valkey, migrations,
+API, relay, worker, and the console — seeded with a few payments:
 
 ```bash
-# 1. datastores (Postgres + Valkey)
-docker compose up -d
-
-# 2. dependencies
-pnpm install
-
-# 3. apply migrations
-cd apps/api && DATABASE_URL=postgresql://payments:payments@localhost:5432/payments npx drizzle-kit migrate && cd ../..
-
-# 4. start the pipeline (api + relay + worker) and the console
-scripts/pipeline.sh up
-pnpm --filter @apps/web dev
+make demo          # or: docker compose up -d --build
 ```
 
 Open **http://localhost:3001**. The API is on `:3000` (`/health/live`,
 `/health/ready`, `/metrics`); the worker exposes metrics on `:9101/metrics`.
+`make down` stops the stack; `make clean` also drops the data volume.
 
-> A single-command containerized stack (`docker compose` for every service +
-> `make demo` with seed data) is a planned convenience — see *What I'd do next*.
+**Dev workflow** (hot reload, roles on the host):
+
+```bash
+docker compose up -d postgres valkey     # datastores only
+pnpm install
+cd apps/api && DATABASE_URL=postgres://payments:payments@localhost:5432/payments npx drizzle-kit migrate && cd ../..
+scripts/pipeline.sh up                     # api + relay + worker
+pnpm --filter @apps/web dev                # console on :3001
+```
 
 ## Demo script
 
@@ -158,7 +158,6 @@ p50 ≈ 3.3 ms / p95 ≈ 4.6 ms (local dev, warm). A formal autocannon run
 
 ## Out of scope & what I'd do next
 
-- One-command containerized stack + seed script (`make up | demo | test`).
 - SSE for sub-second dashboard liveness (the `payment_events` stream already
   models the feed).
 - A real NACHA-batching bank adapter behind the existing bank port.

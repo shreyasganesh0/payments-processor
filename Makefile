@@ -1,0 +1,33 @@
+.PHONY: up down demo test logs clean
+
+# build images and start the whole stack (postgres, valkey, migrate, api, relay, worker, web)
+up:
+	docker compose up -d --build
+
+# start + wait for the API + seed a few payments so the dashboard opens with data
+demo: up
+	@echo "waiting for the API to be ready..."
+	@until curl -sf http://localhost:3000/health/live >/dev/null 2>&1; do sleep 2; done
+	@echo "seeding payments..."
+	@for i in 1 2 3 4 5; do \
+		curl -s -o /dev/null -X POST http://localhost:3000/v1/payments \
+			-H 'Content-Type: application/json' \
+			-H "Idempotency-Key: seed-$$i-$$(date +%s%N)" \
+			-d "{\"customerId\":\"C12345\",\"amount\":\"250.00\",\"sourceAccount\":\"VA10001\",\"destinationAccount\":\"EXT98765\",\"reference\":\"PMT-100$$i\"}"; \
+	done
+	@echo "\nready → open http://localhost:3001"
+
+# run the unit test suites
+test:
+	pnpm -r test
+
+logs:
+	docker compose logs -f
+
+# stop the stack (keep data)
+down:
+	docker compose down
+
+# stop the stack and delete volumes (fresh start)
+clean:
+	docker compose down -v
