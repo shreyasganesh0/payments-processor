@@ -32,3 +32,32 @@ export interface PaymentsPage {
   data: Payment[];
   nextCursor: string | null;
 }
+
+export type WebhookDeliveryStatus = 'pending' | 'delivered' | 'failed' | 'dead';
+
+export interface WebhookDelivery {
+  id: string;
+  endpointId: string;
+  eventId: string;
+  eventType: string;
+  status: WebhookDeliveryStatus;
+  attempts: number;
+  nextAttemptAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+  deliveredAt: string | null;
+  url: string | null;
+}
+
+export interface DeliveriesPage {
+  data: WebhookDelivery[];
+  nextCursor: string | null;
+}
+
+export interface WebhookEndpoint {
+  id: string;
+  url: string;
+  active: boolean;
+  createdAt: string;
+  description: string | null;
+}
