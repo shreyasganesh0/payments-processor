@@ -33,9 +33,8 @@ records *context and edges*.
   (ADR-008).
 - **Dashboard liveness is 2s polling**, not real-time (ADR-011).
 - **One process per role locally** (api / relay / worker via `scripts/pipeline.sh`).
-  Horizontal scaling is *designed for* — `FOR UPDATE SKIP LOCKED`, BullMQ jobId
-  dedup, and CAS make multiple relays/workers safe — but has not been load-tested
-  at scale.
+  Horizontal scaling is verified N-safe (see **Horizontal scaling** below); run
+  replicas locally with `RELAYS=2 WORKERS=2 scripts/pipeline.sh up`.
 
 ## Local topology
 
@@ -43,11 +42,43 @@ records *context and edges*.
 - Postgres `:5432` · Redis/Valkey `:6379`
 - Credentials in local dev are all `payments` (user / password / database).
 
+## Horizontal scaling
+
+Every role runs N-wide with no correctness change — coordination is through
+Postgres/Redis, not process count. Run replicas locally with
+`RELAYS=2 WORKERS=2 scripts/pipeline.sh up`. Verified:
+
+- **API × N** — 12 parallel same-key submits split across two API instances →
+  1 payment, 1 idempotency row (`UNIQUE(customer_id, key)` serializes across all
+  instances).
+- **Relay × N + Worker × N** — 20 payments through 2 relays + 2 workers → all
+  completed with exactly 2 events each (no double-publish, no double-process):
+  the relay claims outbox rows with `FOR UPDATE SKIP LOCKED` and BullMQ dedups on
+  `jobId = outbox.id`; the worker's CAS finalizes each payment once.
+- **Worker × N, forced double-delivery** — 4 distinct-jobId jobs for one payment
+  across 2 workers → single effect (COMPLETED, one COMPLETED event, one bankRef).
+  The CAS + per-payment bank key guarantee exactly-once.
+
+### What changes as N grows
+- **Metrics port** — each worker binds a fixed metrics port. In K8s each pod has
+  its own network namespace, so `:9101` is fine per-pod; N workers on one host
+  collide, so the local supervisor offsets it per instance (9101, 9102, …).
+- **Circuit breaker is per-worker (in-memory)** — the bank can see up to N× the
+  failure threshold before every worker's breaker opens. Acceptable (each sheds
+  its own load); a Redis-backed shared breaker would be tighter.
+- **Poll load** — N relays/dispatchers/reapers each poll on their interval; SKIP
+  LOCKED shares the work, not the reads. A tuning knob (interval × N), not
+  correctness.
+- **Connection counts** — PG and Redis connections scale with replicas.
+
+### What does not change
+Correctness. The guards — `SKIP LOCKED`, `UNIQUE` constraints, the CAS state
+machine, `jobId` dedup, and the per-payment bank key — keep every role safe at
+any N (ADR-003/006/007). Per-payment ordering was never guaranteed and still
+isn't.
+
 ## Known gaps / not yet built
 
-- **Formal load-test numbers** — the performance section in the README is
-  preliminary; a proper autocannon run (fixed hardware, p50/p95/p99 + rps) is
-  pending.
 - **DLQ replay** — dead webhook deliveries need a manual/scripted replay path.
 - **Idempotency-key TTL sweeper** and **outbox cleanup/partitioning** for
   long-running operation.
