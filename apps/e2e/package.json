@@ -4,7 +4,8 @@
     "version": "1.0.0",
     "type": "module",
     "scripts": {
-        "test": "vitest run"
+        "test": "vitest run",
+        "smoke": "vitest run --config vitest.smoke.config.ts"
     },
     "devDependencies": {
         "@types/node": "^22.20.0",

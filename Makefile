@@ -1,4 +1,4 @@
-.PHONY: up down demo test e2e verify load logs clean
+.PHONY: up down demo test e2e verify smoke load logs clean
 
 # build images and start the whole stack (postgres, valkey, migrate, api, relay, worker, web)
 up:
@@ -33,6 +33,16 @@ verify:
 	docker compose up -d --build
 	@for i in $$(seq 1 60); do curl -sf http://localhost:3000/health/ready >/dev/null 2>&1 && break || sleep 2; done
 	@pnpm --filter @apps/e2e test; s=$$?; docker compose down -v; exit $$s
+
+# smoke-test a DEPLOYED environment (health, golden-path payment, CORS, web bundle)
+# — the non-destructive post-deploy check, parameterized by HOST (never a baked
+# IP). SCHEME defaults to http:
+#   make smoke HOST=13.220.187.75.nip.io
+#   make smoke HOST=payments.example.com SCHEME=https
+SCHEME ?= http
+smoke:
+	@test -n "$(HOST)" || { echo "usage: make smoke HOST=<host> [SCHEME=http|https]"; exit 2; }
+	E2E_API_BASE=$(SCHEME)://api.$(HOST) E2E_WEB_ORIGIN=$(SCHEME)://$(HOST) pnpm --filter @apps/e2e run smoke
 
 # load test the API (POST inserts + GET reads) against a running stack
 load:
