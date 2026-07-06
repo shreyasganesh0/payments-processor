@@ -3,7 +3,8 @@ import { Module } from "@nestjs/common";
 //import { TerminusModule } from "@nestjs/terminus";
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { PG_POOL, DB_URL, DRIZZLE } from './database.constants';
+import { PG_POOL, DRIZZLE } from './database.constants';
+import { config } from '../config';
 import * as schema from './schema';
 
 const dbProvider = [{
@@ -12,7 +13,7 @@ const dbProvider = [{
     useFactory: () => {
 
         const pool = new Pool({
-            connectionString: process.env.DATABASE_URL ?? DB_URL, 
+            connectionString: config.databaseUrl,
             connectionTimeoutMillis: 2000,
         });
         pool.on('error', (err) => {

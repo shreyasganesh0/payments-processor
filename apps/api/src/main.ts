@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ProblemDetailFilter } from './common/problem-detail.filter';
 import 'reflect-metadata';
 import { Logger } from 'nestjs-pino';
+import { config } from './config';
 
 
 async function bootstrap() {
@@ -19,8 +20,8 @@ async function bootstrap() {
     })); //strip unknown props from req and 400 on extra props
     app.useGlobalFilters(new ProblemDetailFilter()); //exception handling
 
-    app.enableCors({ origin: 'http://localhost:3001' });
-    await app.listen(3000);
+    app.enableCors({ origin: config.corsOrigin });
+    await app.listen(config.apiPort);
 }
 
 bootstrap();

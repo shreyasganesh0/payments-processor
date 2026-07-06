@@ -4,6 +4,7 @@ x-app: &app
   environment: &app-env
     DATABASE_URL: postgres://payments:payments@postgres:5432/payments
     REDIS_URL: redis://valkey:6379
+    CORS_ORIGIN: http://localhost:3001
   restart: unless-stopped
 
 x-app-deps: &app-deps
