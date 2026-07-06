@@ -1,12 +1,13 @@
 name: CD
 
-# Manual until the AWS infra + repo secrets (EC2_HOST/EC2_USER/EC2_SSH_KEY,
-# var PUBLIC_API_BASE) are in place — see k8s/overlays/aws/README.md. To enable
-# auto-deploy on merge, uncomment the `push` trigger below (CI already gates PRs).
+# Auto-deploy on merge to main. The target instance + web API base come from the
+# secrets/vars that scripts/aws/up.sh sets on each provision:
+#   secrets EC2_HOST / EC2_USER / EC2_SSH_KEY, variable PUBLIC_API_BASE
+# The image is streamed straight into k3s over SSH (no registry auth). If EC2_HOST
+# is unset (nothing provisioned) the job no-ops instead of failing.
 on:
-  workflow_dispatch:
-  # push:
-  #   branches: [main]
+  push:
+    branches: [main]
 
 concurrency:
   group: cd-main
@@ -15,60 +16,37 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write # push to GHCR
     steps:
       - uses: actions/checkout@v4
 
-      - id: img
-        run: echo "ref=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/payments-processor-app:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+      - id: gate
+        env:
+          HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          if [ -n "$HOST" ]; then echo "go=true" >> "$GITHUB_OUTPUT"
+          else echo "no EC2_HOST secret — nothing deployed, skipping"; echo "go=false" >> "$GITHUB_OUTPUT"; fi
 
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - if: steps.gate.outputs.go == 'true'
+        uses: docker/setup-buildx-action@v3
 
       # NEXT_PUBLIC_API_BASE is inlined into the web bundle at build time (ADR-013),
-      # so it must be the PUBLIC api host — set repo variable PUBLIC_API_BASE.
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.img.outputs.ref }}
-          build-args: |
-            NEXT_PUBLIC_API_BASE=${{ vars.PUBLIC_API_BASE }}
+      # so it must be the deployment's PUBLIC api origin (up.sh sets PUBLIC_API_BASE).
+      - name: Build image
+        if: steps.gate.outputs.go == 'true'
+        run: docker build --build-arg NEXT_PUBLIC_API_BASE="${{ vars.PUBLIC_API_BASE }}" -t payments-processor-app:${{ github.sha }} .
 
-      - uses: azure/setup-kubectl@v4
-
-      - name: Render manifests with the new image
-        run: |
-          # --load-restrictor: the overlay references parent k8s/ files, which
-          # kustomize's default (root-only) restrictor blocks.
-          kubectl kustomize --load-restrictor=LoadRestrictionsNone k8s/overlays/aws \
-            | sed -E "s#image: ghcr\.io/[^/]+/payments-processor-app:[^[:space:]]+#image: ${{ steps.img.outputs.ref }}#g" \
-            > manifests.yaml
-
-      # SSH to the k3s box, migrate with the new image, then roll out. The
-      # `app-secret` (RDS/ElastiCache creds) already exists on the cluster.
-      - name: Deploy to k3s
+      - name: Ship to k3s + roll out
+        if: steps.gate.outputs.go == 'true'
         env:
-          IMG: ${{ steps.img.outputs.ref }}
           HOST: ${{ secrets.EC2_HOST }}
           SSH_USER: ${{ secrets.EC2_USER }}
           SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          SHA: ${{ github.sha }}
         run: |
           echo "$SSH_KEY" > key && chmod 600 key
           SSH="ssh -o StrictHostKeyChecking=no -i key ${SSH_USER}@${HOST}"
-          scp -o StrictHostKeyChecking=no -i key manifests.yaml "${SSH_USER}@${HOST}:/tmp/manifests.yaml"
-          $SSH bash -euo pipefail <<EOF
-            # migrations with the new image, run to completion
-            kubectl -n payments run migrate-$(date +%s) --rm -i --restart=Never --image=$IMG \
-              --overrides='{"spec":{"containers":[{"name":"m","image":"$IMG","workingDir":"/app/apps/api","command":["pnpm","exec","drizzle-kit","migrate"],"envFrom":[{"secretRef":{"name":"app-secret"}}]}]}}'
-            # rolling update to the new image (readiness-gated, no downtime)
-            kubectl apply -f /tmp/manifests.yaml
-            kubectl -n payments rollout status deploy/api --timeout=180s
-            kubectl -n payments rollout status deploy/worker --timeout=180s
-          EOF
+          IMG="docker.io/library/payments-processor-app:${SHA}"
+          # stream the built image into the node's containerd (no registry needed)
+          docker save payments-processor-app:${SHA} | gzip | $SSH "gunzip | sudo k3s ctr images import -"
+          # sync the repo on the box to this commit, then migrate + roll out
+          $SSH "cd ~/payments-processor && git fetch -q origin && git reset --hard -q ${SHA} && PP_REPO_DIR=~/payments-processor bash scripts/aws/rollout.sh ${IMG}"
