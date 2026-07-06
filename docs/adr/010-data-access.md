@@ -1,8 +1,10 @@
-# Context
-On the choice of which tool to use for sql transaction managment for the underlying postgres db that will be used to store the data.
+# ADR-010: Data access
+
+## Context
+On the choice of which tool to use for sql transaction management for the underlying postgres db that will be used to store the data.
 
 ## Options
-raw pg - writing raw queries in sql for all the transacitons
+raw pg - writing raw queries in sql for all the transactions
 drizzle - ORM that is typescript native and semantics similar to sql.
 prisma - ORM with its own DSL that allows 
         it to make optimizations under the hood.
@@ -16,7 +18,6 @@ prisma - ORM with its own DSL that allows
     3. All code data and app logic can be written in the same language (typescript)
     4. Allows for specific control over multi-insert and CAS txn mechanisms.
 
-## Tradeoff
+## Consequences
 - may require more lines of code in the long term which Prisma might have an edge over
 - will require a slight indirection from code to raw sql that could require regression testing in the long run.
-

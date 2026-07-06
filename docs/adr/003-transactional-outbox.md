@@ -1,3 +1,5 @@
+# ADR-003: Transactional outbox
+
 ## Context
 transactions across two systems can cause dual writes. In our case jobs to the queue
 must be submitted durably while the payment being recorded durably.
@@ -13,9 +15,9 @@ must be submitted durably while the payment being recorded durably.
     - can only represent single lifecycle events
 - CDC 
     - tail the WAL for events instead of having another table 
-    - usefule if there are multiple services that consume different types of jobs
+    - useful if there are multiple services that consume different types of jobs
 - Transactional outbox table 
-- insert publishing required events into a seperate outbox
+- insert publishing required events into a separate outbox
                         
 ## Decision
 - We choose a transactional outbox table as the simplest choice for our usecase
@@ -23,11 +25,8 @@ must be submitted durably while the payment being recorded durably.
 ## Consequences
 - atomic with payments table no dual writes
 - durable across failures of processes 
-- can handle mulitple lifecycle events and webhook delivery
+- can handle multiple lifecycle events and webhook delivery
 - adds one extra insert overhead into outbox table 
-- need a seperate process to monitor and publish events from
-- atleast once delivery can cause duplicate publishes of already completed events
+- need a separate process to monitor and publish events from
+- at-least-once delivery can cause duplicate publishes of already completed events
     - must be managed by idempotency
-
-
-

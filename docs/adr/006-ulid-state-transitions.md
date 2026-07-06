@@ -1,11 +1,13 @@
-# Context
+# ADR-006: Identifiers and state transitions
+
+## Context
 What kind of id to use for the id column
 
 ## Decision
 We will be using ULIDs to prevent randomness causing fragmentation in the index
 and allow approx time based sorting
 
-## Transactions Transitions
+## State transitions
 PENDING -> PROCESSING
 PROCESSING -> COMPLETED | FAILED | RETRYING
 RETRYING -> PROCESSING

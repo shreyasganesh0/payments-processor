@@ -1,3 +1,5 @@
+# ADR-009: Observability
+
 ## Context
 require a correlation id to tag logs to processes. and choosing logging library
 
@@ -8,14 +10,14 @@ require a correlation id to tag logs to processes. and choosing logging library
 - logging library
     - nestjs-pino that supports DI injection
     - raw pino library need to write ports manually
-    - nestjs-promotheus library
+    - nestjs-prometheus library
     - raw prometheus
 
 
 ## Decision
 - accept id from header and generate one if not provided
-- use the nestjs-pino library to allow smooth loggin integration
-- use nestjs-promotheus for loggin metrics except for in the standalone worker server
+- use the nestjs-pino library to allow smooth logging integration
+- use nestjs-prometheus for logging metrics except for in the standalone worker server
 
 ## Consequences
 - allows for clients to structure their tracing as they wish

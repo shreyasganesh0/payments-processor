@@ -1,3 +1,5 @@
+# ADR-002: Idempotency
+
 ## Context
 
 4 axes on which to decide how idempotency will work in the api for payments
@@ -12,7 +14,7 @@ key, storage, payload fingerprint and concurrency
 
 ## Decision
 - we will use a per customer specific unique (cust_id, key) tuple
-- store the key in a seperate idempotency table with related request and response
+- store the key in a separate idempotency table with related request and response
 - using a fingerprint of the request to prevent reuse of idempotency tokens
 - db unique constraint use to perform serialization of transactions
 
@@ -23,4 +25,3 @@ key, storage, payload fingerprint and concurrency
 - concurrency walk: two users try to write to the same index block based on the idempotency key. since it is unique the writer blocks the loser who gets an error message and their write fails
 - responses must be stored as json not jsonb so that keys are not reordered
 - the loser of the race must waste their time attempting a write
-
