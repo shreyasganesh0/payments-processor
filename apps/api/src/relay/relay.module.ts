@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { RelayService } from "./relay.service";
+import { ReaperService } from "./reaper.service";
 import { WebhookDispatcherService } from "../webhooks/webhooks-dispatcher.service";
 import { DatabaseModule } from "../database/database.module";
 import { QueueModule } from "../queue/queue.module";
@@ -9,6 +10,6 @@ const logger = LoggerModule.forRoot({});
 @Module({
 
     imports: [DatabaseModule, QueueModule, logger],
-    providers: [RelayService, WebhookDispatcherService],
+    providers: [RelayService, ReaperService, WebhookDispatcherService],
 })
 export class RelayModule{}

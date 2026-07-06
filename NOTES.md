@@ -45,9 +45,6 @@ records *context and edges*.
 
 ## Known gaps / not yet built
 
-- **Reaper process** — the recovery net for the strand windows in ADR-007 (crash
-  between a PROCESSING/RETRYING commit and the enqueue) is specified but not yet
-  implemented; those windows currently rely on redelivery only.
 - **Formal load-test numbers** — the performance section in the README is
   preliminary; a proper autocannon run (fixed hardware, p50/p95/p99 + rps) is
   pending.
