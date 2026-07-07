@@ -1,4 +1,4 @@
-.PHONY: up down demo test e2e verify smoke load logs clean
+.PHONY: up down demo test e2e verify smoke kube-up kube-down load logs clean
 
 # build images and start the whole stack (postgres, valkey, migrate, api, relay, worker, web)
 up:
@@ -16,6 +16,14 @@ demo: up
 			-d "{\"customerId\":\"C12345\",\"amount\":\"250.00\",\"sourceAccount\":\"VA10001\",\"destinationAccount\":\"EXT98765\",\"reference\":\"PMT-100$$i\"}"; \
 	done
 	@echo "\nready → open http://localhost:3001"
+
+# run the stack on a LOCAL kubernetes cluster (kind/minikube) — self-contained
+# (in-cluster postgres+valkey), reached at localhost via port-forward. Exercises
+# the real k8s manifests locally. Needs kind (or minikube) + kubectl installed.
+kube-up:
+	scripts/local-k8s.sh up
+kube-down:
+	scripts/local-k8s.sh down
 
 # run the unit test suites (excludes the black-box e2e package, which needs a live stack)
 test:
