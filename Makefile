@@ -1,4 +1,4 @@
-.PHONY: up down demo demo-webhooks test e2e verify smoke kube-up kube-down load logs clean
+.PHONY: up down demo demo-webhooks demo-webhooks-down test e2e verify smoke kube-up kube-down load logs clean
 
 # build images and start the whole stack (postgres, valkey, migrate, api, relay, worker, web)
 up:
@@ -67,10 +67,16 @@ load:
 logs:
 	docker compose logs -f
 
-# stop the stack (keep data)
+# stop the stack (keep data). --profile webhooks-demo so the (profiled) test
+# receiver is torn down too; without it `docker compose down` leaves the receiver
+# running and can't remove the network.
 down:
-	docker compose down
+	docker compose --profile webhooks-demo down
 
 # stop the stack and delete volumes (fresh start)
 clean:
-	docker compose down -v
+	docker compose --profile webhooks-demo down -v
+
+# stop + remove ONLY the test receiver, leaving the main stack up
+demo-webhooks-down:
+	docker compose --profile webhooks-demo rm -sf webhook-receiver

@@ -61,3 +61,4 @@ $DC exec -T postgres psql -U payments -d payments -c \
   "SELECT wd.status, e.url, wd.attempts, wd.last_error FROM webhook_deliveries wd JOIN webhook_endpoints e ON e.id = wd.endpoint_id ORDER BY wd.created_at DESC LIMIT 10;"
 
 echo "next: open http://localhost:3001/webhooks  ·  receiver log: docker compose --profile webhooks-demo logs webhook-receiver  ·  inspect: demo/beat6.sh"
+echo "stop the receiver when done: make demo-webhooks-down   (or it's swept by make down / make clean)"
