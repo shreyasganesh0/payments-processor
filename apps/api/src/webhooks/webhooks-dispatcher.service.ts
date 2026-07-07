@@ -44,7 +44,7 @@ export class WebhookDispatcherService implements OnModuleInit, OnApplicationShut
 
     private async poll_once(): Promise<number> {
         
-        const deliveries = await this.db.transaction(async tx => {
+        return await this.db.transaction(async tx => {
 
             //rows to submit
             const events = await tx.select().from(outbox)
@@ -54,7 +54,7 @@ export class WebhookDispatcherService implements OnModuleInit, OnApplicationShut
             ))
             .orderBy(outbox.createdAt).limit(100).for('update', { skipLocked: true});
 
-            if (events.length === 0) return [];
+            if (events.length === 0) return 0;
 
             const endpoints = await tx.select().from(webhookEndpoints)
                 .where(eq(webhookEndpoints.active, true));
@@ -76,18 +76,17 @@ export class WebhookDispatcherService implements OnModuleInit, OnApplicationShut
             }));
             if (rows.length > 0) await tx.insert(webhookDeliveries).values(rows);
 
+            await Promise.all(rows.map(d => 
+                this.queue.add('webhook.deliver', { deliveryId: d.id }, { jobId: d.id })
+            ));
+
             //mark all events dispatched
             await tx.update(outbox).set({ webhookDispatchedAt: new Date() })
                 .where(inArray(outbox.id, events.map(e => e.id)));
 
-            return rows;
+            return rows.length;
         });
 
-        await Promise.all(deliveries.map(d => 
-            this.queue.add('webhook.deliver', { deliveryId: d.id }, { jobId: d.id })
-        ));
-
-        return deliveries.length;
     }
 
     onApplicationShutdown(signal?: string) {
