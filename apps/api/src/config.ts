@@ -107,6 +107,8 @@ export const config = {
         maxAttempts: num('WEBHOOK_MAX_ATTEMPTS', 5, { min: 1 }),
         httpTimeoutMs: num('WEBHOOK_HTTP_TIMEOUT_MS', 5000, { min: 0 }),
         pollMs: num('WEBHOOK_POLL_MS', 5000, { min: 100 }),
+        reaperIntervalMs: num('WEBHOOK_REAPER_INTERVAL_MS', 30_000, { min: 100 }),
+        reaperDeadlineMs: num('WEBHOOK_REAPER_DEADLINE_MS', 60_000, { min: 0 }),
     },
 } as const;
 
