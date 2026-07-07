@@ -44,9 +44,6 @@ export class PaymentsService {
                     reference: dto.reference,
                 }).returning();
 
-                // Invariant #2: payment + audit event + outbox in ONE txn. This
-                // is the payment's creation event, so the audit log starts at
-                // submission (null -> PENDING) rather than at the worker's first hop.
                 await tx.insert(paymentEvents).values({
                     id: ulid(),
                     paymentId: row.id,
@@ -93,7 +90,7 @@ export class PaymentsService {
             const code = e.code ?? e.cause?.code; //type checking for error code
                                       //can be removed if know where pg codes always land
 
-            if (code === '23505') {
+            if (code === '23505') {// caused by unique constraint (cust_id, idempotency)
 
                 const [existing] = await this.db.select().from(idempotencyKeys).where(
                     and(eq(idempotencyKeys.customerId, dto.customerId),
@@ -105,14 +102,21 @@ export class PaymentsService {
 
                 if (existing.requestHash !== req_hash) {
                     this.logger.warn(
-                        { correlationId: correlation_id, idempotencyKey: idempotency_key },
+                        { 
+                            correlationId: correlation_id,
+                            idempotencyKey: idempotency_key 
+                        },
                         'idempotency key reused with different payload'
                     );
                     throw new ConflictException('Idempotency-Key reused with a different request payload');
                 }
 
                 this.logger.info(
-                    { correlationId: correlation_id, paymentId: existing.paymentId, idempotencyKey: idempotency_key },
+                    { 
+                        correlationId: correlation_id,
+                        paymentId: existing.paymentId,
+                        idempotencyKey: idempotency_key 
+                    },
                     'idempotent replay'
                 );
                 return {
