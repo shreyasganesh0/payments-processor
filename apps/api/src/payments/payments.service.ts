@@ -9,13 +9,17 @@ import { DrizzleDB } from '../database/database.types';
 import { ulid } from 'ulid';
 import { convAmountToUnits } from '@payments/shared';
 import { eq, and, lt, desc } from 'drizzle-orm';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
 type PaymentRow = typeof payments.$inferSelect;
 
 @Injectable()
 export class PaymentsService {
 
-    constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {};
+    constructor(
+        @Inject(DRIZZLE) private readonly db: DrizzleDB,
+        @InjectPinoLogger(PaymentsService.name) private readonly logger: PinoLogger,
+    ) {};
 
     async insert_txn(
         dto: CreatePaymentDto,
@@ -88,12 +92,22 @@ export class PaymentsService {
                 
                 if (!existing) throw new Error(`customer: ${dto.customerId} and idempotency key: ${idempotency_key} did not exist in idempotencyKeys table`);
 
-                if (existing.requestHash !== req_hash) throw new ConflictException('Idempotency-Key reused with a different request payload');
+                if (existing.requestHash !== req_hash) {
+                    this.logger.warn(
+                        { correlationId: correlation_id, idempotencyKey: idempotency_key },
+                        'idempotency key reused with different payload'
+                    );
+                    throw new ConflictException('Idempotency-Key reused with a different request payload');
+                }
 
-                return { 
+                this.logger.info(
+                    { correlationId: correlation_id, paymentId: existing.paymentId, idempotencyKey: idempotency_key },
+                    'idempotent replay'
+                );
+                return {
                     replayed: true,
                     status: existing.responseStatus,
-                    body: existing.responseBody as PaymentRow 
+                    body: existing.responseBody as PaymentRow
                 };
             } else {
 
