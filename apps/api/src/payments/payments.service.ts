@@ -44,6 +44,17 @@ export class PaymentsService {
                     reference: dto.reference,
                 }).returning();
 
+                // Invariant #2: payment + audit event + outbox in ONE txn. This
+                // is the payment's creation event, so the audit log starts at
+                // submission (null -> PENDING) rather than at the worker's first hop.
+                await tx.insert(paymentEvents).values({
+                    id: ulid(),
+                    paymentId: row.id,
+                    fromStatus: null,
+                    toStatus: 'PENDING',
+                    correlationId: correlation_id,
+                    metadata: { reason: 'submitted' },
+                });
 
                 await tx.insert(idempotencyKeys).values({
                     customerId: dto.customerId,
