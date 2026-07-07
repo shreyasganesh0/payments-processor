@@ -13,7 +13,10 @@ data:
   NODE_ENV: "production" # config.ts then REQUIRES the datastore URLs (fail-fast)
   PORT: "3000"
   METRICS_PORT: "9101" # every worker pod is network-isolated, so no port collision
-  # the web's public origin (the ingress host serving the console)
+  # the web's public origin (the ingress host serving the console). Comma-separated
+  # allowlist. PAIRS with the web image's NEXT_PUBLIC_API_BASE, which must be baked
+  # to the API's public origin (http://api.payments.local) — see k8s/README.md.
+  # Edit the two together or the browser's cross-origin calls break.
   CORS_ORIGIN: "http://payments.local"
   # in-cluster Redis; swap for a managed endpoint (ElastiCache/Memorystore) in prod
   REDIS_URL: "redis://valkey:6379"

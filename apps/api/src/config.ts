@@ -69,7 +69,14 @@ export const config = {
     databaseUrl: env('DATABASE_URL', 'postgres://payments:payments@localhost:5432/payments'),
     redisUrl: env('REDIS_URL', 'redis://localhost:6379'),
     apiPort: num('PORT', 3000, { min: 1, max: 65535 }),
-    corsOrigin: env('CORS_ORIGIN', 'http://localhost:3001'),
+    // Allowlist (comma-separated). enableCors reflects whichever entry matches the
+    // request Origin, so the browser gets its own origin echoed back — localhost AND
+    // 127.0.0.1 both work locally (they load different Chrome origins but reach the
+    // same API). Must include every public web origin per environment.
+    corsOrigins: env('CORS_ORIGIN', 'http://localhost:3001,http://127.0.0.1:3001')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
     metricsPort: num('METRICS_PORT', 9101, { min: 1, max: 65535 }),
 
     // ── worker: retry/backoff (also drives webhook retries via computeBackoffMs) ──

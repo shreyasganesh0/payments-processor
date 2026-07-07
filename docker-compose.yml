@@ -1,10 +1,19 @@
 x-app: &app
-  build: .
+  build:
+    context: .
+    # Bake the web bundle's API base from the same .env that CORS_ORIGIN reads, so
+    # the (baked) NEXT_PUBLIC_API_BASE and (runtime) CORS_ORIGIN can't drift. Next
+    # inlines this at build time (ADR-013); the Dockerfile ARG is the fallback.
+    args:
+      NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:3000}
   image: payments-processor-app
   environment: &app-env
     DATABASE_URL: postgres://payments:payments@postgres:5432/payments
     REDIS_URL: redis://valkey:6379
-    CORS_ORIGIN: http://localhost:3001
+    # Allowlist of the console's public origins. Pairs with NEXT_PUBLIC_API_BASE
+    # (baked build-arg above); both browser hosts reach the same API, so listing
+    # both lets the console load at localhost OR 127.0.0.1.
+    CORS_ORIGIN: http://localhost:3001,http://127.0.0.1:3001
   restart: unless-stopped
 
 x-app-deps: &app-deps

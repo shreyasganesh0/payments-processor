@@ -7,5 +7,7 @@ metadata:
   name: app-config
   namespace: payments
 data:
+  # PAIRS with the web image's NEXT_PUBLIC_API_BASE build-arg, which must be baked to
+  # http://api.EC2_PUBLIC_DNS (see overlays/aws/README.md). Edit both together.
   CORS_ORIGIN: "http://EC2_PUBLIC_DNS"
   REDIS_URL: "redis://ELASTICACHE_ENDPOINT:6379"

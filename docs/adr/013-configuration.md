@@ -71,3 +71,29 @@ Extended so future additions are localized:
   a typed field on the in-memory holder; the poll-sync propagates it.
 - **a deployment target** → a new `k8s/overlays/<env>/` patching only the deltas;
   base + `.env` unchanged.
+
+## Amendment — the CORS_ORIGIN ↔ NEXT_PUBLIC_API_BASE pair
+
+`CORS_ORIGIN` (runtime, on the API) and `NEXT_PUBLIC_API_BASE` (build-time, baked into
+the web bundle) are the two ends of one cross-origin handshake: the first must equal
+the origin the browser loads the console from, the second must equal the API's public
+origin. They live in different mechanisms — one a ConfigMap/env var, one inlined at
+`next build` — so they can silently drift (the classic "Failed to fetch" footgun; e.g.
+loading the console at `127.0.0.1` when CORS only allows `localhost`). Three measures
+keep them matched without unifying them (which the runtime/build-time split forbids):
+
+- **`CORS_ORIGIN` is a comma-separated allowlist**, parsed in `config.ts`
+  (`config.corsOrigins`). `enableCors` reflects whichever entry matches the request
+  Origin, so listing both `http://localhost:3001` and `http://127.0.0.1:3001` locally
+  makes either browser host work against the same API. Per environment it lists every
+  public web origin.
+- **One source per environment.** Locally, `docker-compose` bakes
+  `NEXT_PUBLIC_API_BASE` from the same root `.env` that supplies `CORS_ORIGIN`, so both
+  halves come from one file. In k8s the pair is declared adjacently with cross-reference
+  comments (`00-namespace.yaml` / `overlays/*/patch-config.yaml` ↔ the README build-arg)
+  so they are edited together.
+- **A browser-free drift guard** (`apps/e2e/src/08-cors.e2e.test.ts`): the preflight
+  test asserts `CORS_ORIGIN` allows the web origin, and a companion test fetches the
+  served web bundle and asserts the baked `NEXT_PUBLIC_API_BASE` equals the API's public
+  origin. Both run against any environment via `E2E_WEB_ORIGIN` / `E2E_API_BASE`, so a
+  mismatch fails `make e2e` instead of the UI.

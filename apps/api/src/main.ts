@@ -20,7 +20,7 @@ async function bootstrap() {
     })); //strip unknown props from req and 400 on extra props
     app.useGlobalFilters(new ProblemDetailFilter()); //exception handling
 
-    app.enableCors({ origin: config.corsOrigin });
+    app.enableCors({ origin: config.corsOrigins });
     await app.listen(config.apiPort);
 }
 
