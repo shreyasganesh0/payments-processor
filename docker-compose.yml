@@ -105,5 +105,28 @@ services:
       api:
         condition: service_started
 
+  # TEST-ONLY webhook receiver for `make demo-webhooks`. Gated behind the
+  # `webhooks-demo` profile so it NEVER starts on `make up`/`make demo`. It's a
+  # stock node:alpine running a bind-mounted script -- not the app image, not in
+  # any k8s manifest -- so it cannot reach a CD/prod deployment. The worker
+  # reaches it over the compose network via the `receiver.local` alias (a dotted
+  # host, required because @IsUrl rejects bare service names / localhost).
+  webhook-receiver:
+    profiles: ["webhooks-demo"]
+    image: node:22-alpine
+    restart: unless-stopped
+    command: node /app/webhook-receiver.mjs
+    volumes:
+      - ./scripts/webhook-receiver.mjs:/app/webhook-receiver.mjs:ro
+    environment:
+      OK_SECRET: ${WEBHOOK_OK_SECRET:-}
+      FAIL_SECRET: ${WEBHOOK_FAIL_SECRET:-}
+    ports:
+      - "9099:9099"
+    networks:
+      default:
+        aliases:
+          - receiver.local
+
 volumes:
   postgres-data:

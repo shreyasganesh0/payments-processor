@@ -4,3 +4,8 @@
 apps/web/.next
 **/dist
 **/*.log
+
+# test-only demo harness — must never enter any image layer
+scripts/webhook-receiver.mjs
+scripts/demo-webhooks.sh
+demo/

@@ -1,4 +1,4 @@
-.PHONY: up down demo test e2e verify smoke kube-up kube-down load logs clean
+.PHONY: up down demo demo-webhooks test e2e verify smoke kube-up kube-down load logs clean
 
 # build images and start the whole stack (postgres, valkey, migrate, api, relay, worker, web)
 up:
@@ -16,6 +16,13 @@ demo: up
 			-d "{\"customerId\":\"C12345\",\"amount\":\"250.00\",\"sourceAccount\":\"VA10001\",\"destinationAccount\":\"EXT98765\",\"reference\":\"PMT-100$$i\"}"; \
 	done
 	@echo "\nready → open http://localhost:3001"
+
+# TEST-ONLY: Beat 6 setup. Registers a working + a failing webhook endpoint
+# against a bundled receiver (compose `webhooks-demo` profile), fires a payment,
+# and waits for one `delivered` + one `dead` (DLQ) row. The receiver is not in
+# the app image or any k8s manifest, so it never reaches a CD/prod deploy.
+demo-webhooks: up
+	scripts/demo-webhooks.sh
 
 # run the stack on a LOCAL kubernetes cluster (kind/minikube) — self-contained
 # (in-cluster postgres+valkey), reached at localhost via port-forward. Exercises
