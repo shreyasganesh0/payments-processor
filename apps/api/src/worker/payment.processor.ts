@@ -44,6 +44,11 @@ export class PaymentProcessor extends WorkerHost {
 
         const { paymentId } = job.data;
 
+        this.logger.info(
+            { jobId: job.id, name: job.name, attemptsMade: job.attemptsMade, paymentId, correlationId: job.data.correlationId },
+            'job dequeued'
+        );
+
         //txn 1
         await this.db.transaction(async tx => {
             // for(update) blocks double delivery for concurrent reads 
@@ -64,12 +69,17 @@ export class PaymentProcessor extends WorkerHost {
                     eq(payments.status, row.status)
                 )
             ).returning();
-            this.logger.info(
-                { correlationId: job.data.correlationId, paymentId },
-                'worker claimed payment'
-            );
 
             if (rows.length === 0) return;
+
+            this.logger.info(
+                { 
+                    correlationId: job.data.correlationId,
+                    paymentId,
+                    toStatus: 'PROCESSING' 
+                },
+                'payment transition'
+            );
 
             await tx.insert(paymentEvents).values({
                 id: ulid(),
