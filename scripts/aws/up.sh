@@ -9,7 +9,9 @@ set -euo pipefail
 export AWS_PAGER=""
 
 VPC=$(aws ec2 describe-vpcs --filters Name=isDefault,Values=true --query 'Vpcs[0].VpcId' --output text)
-PGPASS="${PP_DB_PASSWORD:-Vansi123x}"
+# Never hardcode a DB password here (public repo). Supply it out-of-band and keep
+# it STABLE across runs (RDS is created once with it): export PP_DB_PASSWORD=...
+PGPASS="${PP_DB_PASSWORD:?set PP_DB_PASSWORD to a strong secret before running; do not hardcode it}"
 ITYPE="${PP_INSTANCE_TYPE:-t3.small}"
 REPO="${PP_GH_REPO:-shreyasganesh0/payments-processor}"
 KEY="$HOME/pp-key.pem"
