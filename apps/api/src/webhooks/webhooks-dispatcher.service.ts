@@ -44,7 +44,7 @@ export class WebhookDispatcherService implements OnModuleInit, OnApplicationShut
 
     private async poll_once(): Promise<number> {
         
-        return await this.db.transaction(async tx => {
+        const rows = await this.db.transaction(async tx => {
 
             //rows to submit
             const events = await tx.select().from(outbox)
@@ -54,12 +54,12 @@ export class WebhookDispatcherService implements OnModuleInit, OnApplicationShut
             ))
             .orderBy(outbox.createdAt).limit(100).for('update', { skipLocked: true});
 
-            if (events.length === 0) return 0;
+            if (events.length === 0) return [];
 
             const endpoints = await tx.select().from(webhookEndpoints)
                 .where(eq(webhookEndpoints.active, true));
 
-            //1 delivery per event x endpoint 
+            //1 delivery per event x endpoint
             const rows = events.flatMap(e => endpoints.map(ep => {
                 const id = ulid();
                 this.logger.info(
@@ -76,16 +76,24 @@ export class WebhookDispatcherService implements OnModuleInit, OnApplicationShut
             }));
             if (rows.length > 0) await tx.insert(webhookDeliveries).values(rows);
 
-            await Promise.all(rows.map(d => 
-                this.queue.add('webhook.deliver', { deliveryId: d.id }, { jobId: d.id })
-            ));
-
             //mark all events dispatched
             await tx.update(outbox).set({ webhookDispatchedAt: new Date() })
                 .where(inArray(outbox.id, events.map(e => e.id)));
 
-            return rows.length;
+            return rows;
         });
+
+        // Enqueue AFTER commit. The consumer (webhook.processor) looks the delivery up by id,
+        // so the row must be COMMITTED before its job is visible — enqueuing inside the tx let
+        // the worker dequeue and read-miss before commit, hit `if (!delivery) return`, and
+        // silently drop the job (delivery stuck pending(0) until the reaper recovered it).
+        // jobId=d.id keeps this idempotent; the crash-between-commit-and-enqueue window is
+        // covered by WebhookReaperService.
+        await Promise.all(rows.map(d =>
+            this.queue.add('webhook.deliver', { deliveryId: d.id }, { jobId: d.id }),
+        ));
+
+        return rows.length;
 
     }
 
