@@ -83,7 +83,7 @@ export const webhookDeliveries = pgTable('webhook_deliveries', {
     lastError: text('last_error'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     deliveredAt: timestamp('delivered_at', { withTimezone: true }),
-});
+}, (t) => ({ uqEventEndpoint: unique().on(t.eventId, t.endpointId) }));
 
 // chaos control — simulated-bank config, read by the worker's bank adapter
 // via a poll-sync so the API can flip it cross-process. Single row (id='singleton').
