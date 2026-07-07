@@ -51,9 +51,8 @@ export class PaymentProcessor extends WorkerHost {
 
         //txn 1
         await this.db.transaction(async tx => {
-            // for(update) blocks double delivery for concurrent reads 
             const [row] = await tx.select({ status: payments.status })
-                .from(payments).where(eq(payments.id, paymentId)).for('update');
+                .from(payments).where(eq(payments.id, paymentId));
             if (!row) return;
             //check for non terminal starting points
             if (!canTransition(row.status, 'PROCESSING')) return; 
@@ -63,7 +62,7 @@ export class PaymentProcessor extends WorkerHost {
                 version: sql`${payments.version}+1`,
                 updatedAt: new Date()
             })
-            .where(
+            .where( // CAS on status
                 and(
                     eq(payments.id, paymentId),
                     eq(payments.status, row.status)
@@ -92,6 +91,7 @@ export class PaymentProcessor extends WorkerHost {
             return;
         });
 
+        // Send request to bank
         let dis: Disposition;
         if (!this.breaker.allow()) {
             bankAttempts.inc({ outcome: 'circuit_open' });
