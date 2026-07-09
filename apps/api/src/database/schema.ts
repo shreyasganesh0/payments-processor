@@ -21,6 +21,8 @@ export const payments = pgTable('payments', {
     reference: text('reference'),
     status: paymentStatus('status').notNull().default('PENDING'),
     version: integer('version').notNull().default(0),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    lastErrorCode: text('last_error_code'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 

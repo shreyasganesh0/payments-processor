@@ -147,33 +147,27 @@ export class PaymentProcessor extends WorkerHost {
         if (dis.kind === 'RETRY') {
 
             let scheduledAttempt: number | null = null;
-            await this.db.transaction(async tx => { 
-                const [{ count }] = await tx.select({ count: sql<number>`count(*)::int` })
-                    .from(paymentEvents)
-                    .where(
-                        and(
-                            eq(paymentEvents.paymentId, paymentId), 
-                            eq(paymentEvents.toStatus, 'RETRYING')
-                        )
-                    );
+            await this.db.transaction(async tx => {
 
-                if (count >= MAX_RETRIES) {
+                if (!canTransition('PROCESSING', 'RETRYING') || !canTransition('PROCESSING', 'FAILED')){
+                throw new Error(`Invalid state transition from PROCESSING`);
+                }
 
-                    if (!canTransition('PROCESSING', 'FAILED')){
-                    throw new Error(`Invalid state transition from PROCESSING to FAILED`);
-                    } 
+                const [row] = await tx.update(payments).set({
+                    attemptCount: sql`${payments.attemptCount} + 1`,
+                    lastErrorCode: dis.reason,
+                    version: sql`${payments.version}+1`,
+                    updatedAt: new Date(),
+                    status: sql`(CASE WHEN ${payments.attemptCount} + 1 > ${MAX_RETRIES} THEN 'FAILED' ELSE 'RETRYING' END)::"payment_status"`
+                })
+                .where(and(
+                    eq(payments.id, paymentId),
+                    eq(payments.status, 'PROCESSING')
+                )).returning({ status: payments.status, attemptCount: payments.attemptCount });
 
-                    const rows = await tx.update(payments).set({
-                        status: 'FAILED',
-                        version: sql`${payments.version}+1`,
-                        updatedAt: new Date()
-                    })
-                    .where(and(
-                        eq(payments.id, paymentId),
-                        eq(payments.status, 'PROCESSING')
-                    )).returning();
+                if (!row) return;
 
-                    if (rows.length === 0) return;
+                if (row.status === 'FAILED') {
 
                     await tx.insert(paymentEvents).values({
                         id: ulid(),
@@ -185,52 +179,34 @@ export class PaymentProcessor extends WorkerHost {
                     });
 
                     this.logger.info(
-                        { 
+                        {
                             correlationId: job.data.correlationId,
                             paymentId,
-                            toStatus: 'FAILED' 
+                            toStatus: 'FAILED'
                         },
                         'payment transition'
                     );
                     return;
-                } else {
-
-                    const attempt = count + 1;
-                    if (!canTransition('PROCESSING', 'RETRYING')){
-                    throw new Error(`Invalid state transition from PROCESSING to RETRYING`);
-                    } 
-
-                    const rows = await tx.update(payments).set({
-                        status: 'RETRYING',
-                        version: sql`${payments.version}+1`,
-                        updatedAt: new Date()
-                    })
-                    .where(and(
-                        eq(payments.id, paymentId),
-                        eq(payments.status, 'PROCESSING')
-                    )).returning();
-
-                    if (rows.length === 0) return;
-
-                    scheduledAttempt = attempt;
-
-                    await tx.insert(paymentEvents).values({
-                        id: ulid(),
-                        paymentId: paymentId,
-                        fromStatus: 'PROCESSING',
-                        toStatus: 'RETRYING',
-                        correlationId: job.data.correlationId ?? null,
-                        metadata: { reason: dis.reason, attempt }
-                    });
-                    this.logger.info(
-                        { 
-                            correlationId: job.data.correlationId,
-                            paymentId,
-                            toStatus: 'RETRYING' 
-                        },
-                        'payment transition'
-                    );
                 }
+
+                scheduledAttempt = row.attemptCount;
+
+                await tx.insert(paymentEvents).values({
+                    id: ulid(),
+                    paymentId: paymentId,
+                    fromStatus: 'PROCESSING',
+                    toStatus: 'RETRYING',
+                    correlationId: job.data.correlationId ?? null,
+                    metadata: { reason: dis.reason, attempt: row.attemptCount }
+                });
+                this.logger.info(
+                    {
+                        correlationId: job.data.correlationId,
+                        paymentId,
+                        toStatus: 'RETRYING'
+                    },
+                    'payment transition'
+                );
             });
 
             if (scheduledAttempt !== null) {

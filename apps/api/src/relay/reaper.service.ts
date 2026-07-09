@@ -78,6 +78,7 @@ export class ReaperService implements OnModuleInit, OnApplicationShutdown {
                 await tx.update(payments)
                     .set({
                         status: 'RETRYING',
+                        attemptCount: sql`${payments.attemptCount} + 1`,
                         version: sql`${payments.version} + 1`,
                         updatedAt: new Date(),
                     })
