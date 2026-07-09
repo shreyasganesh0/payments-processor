@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# demo-webhooks.sh — TEST-ONLY. Sets up Beat 6 end to end against the running
+# demo-webhooks.sh — TEST-ONLY. end to end against the running
 # stack: registers one working (/ok) and one failing (/fail) webhook endpoint,
 # starts the bundled receiver (compose `webhooks-demo` profile) with their
 # secrets so it can verify signatures, fires a payment, and waits until one
@@ -55,6 +55,9 @@ for i in $(seq 1 45); do
   sleep 2
 done
 echo
+
+echo "==> receiver log (independent proof the signed HTTP requests actually arrived):"
+$DC --profile webhooks-demo logs --no-log-prefix webhook-receiver 2>/dev/null | grep -E '^\{' || echo "   <no receiver log lines>"
 
 echo "==> delivery outcomes:"
 $DC exec -T postgres psql -U payments -d payments -c \

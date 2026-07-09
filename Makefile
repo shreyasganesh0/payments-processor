@@ -17,7 +17,7 @@ demo: up
 	done
 	@echo "\nready → open http://localhost:3001"
 
-# TEST-ONLY: Beat 6 setup. Registers a working + a failing webhook endpoint
+# TEST-ONLY: Registers a working + a failing webhook endpoint
 # against a bundled receiver (compose `webhooks-demo` profile), fires a payment,
 # and waits for one `delivered` + one `dead` (DLQ) row. The receiver is not in
 # the app image or any k8s manifest, so it never reaches a CD/prod deploy.

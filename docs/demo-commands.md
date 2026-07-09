@@ -17,6 +17,10 @@ curl http://localhost:3000/health/ready
 4. Copy the correlationId -> paste into the Log cmd (api 202 -> worker PROCESSING -> worker COMPLETED, one thread).
 5. Copy the paymentId (URL or table) -> paste into the Db cmd (version=2 + two append-only event rows).
 
+## Submit cmd (raw API, instead of the dashboard -- amount is a STRING, Idempotency-Key REQUIRED)
+curl -i -X POST http://localhost:3000/v1/payments -H 'content-type: application/json' -H "Idempotency-Key: demo-$(date +%s)" -d '{"customerId":"C12345","amount":"12.50","sourceAccount":"VA10001","destinationAccount":"EXT98765","reference":"PMT-1001"}'
+# -> 202 + Location: /v1/payments/<id>; a JSON number amount (e.g. 12.50 unquoted) is rejected 400
+
 ## UI (React/Next data-flow only)
 - apps/web/src/lib/usePolling.ts:20-36 -- poll engine: immediate + setInterval (28-29); pauses when tab hidden (visibilityState 24, visibilitychange listener 30); useRef guard avoids resetting the interval each render (15-18).
 - apps/web/src/app/page.tsx:11,33 -- POLL_MS=2000; usePolling(refresh, POLL_MS); refresh -> listPayments (20-22).
@@ -90,15 +94,18 @@ docker compose exec postgres psql -U payments -d payments -c "SELECT (SELECT cou
 ## Backend (retry + backoff + cross-process chaos)
 - apps/api/src/bank/bank-config-sync.service.ts:48-54 -- runs in the WORKER: polls bank_config every BANK_SYNC_MS (2s) and pushes mode/latency onto the sim via setConfig (52). This is how a chaos toggle reaches the worker.
 - apps/api/src/worker/payment.processor.ts:96,132 -- withTimeout(bank.authorize, 2000) (96); timeout -> RETRY reason bank_timeout (132).
-- payment.processor.ts:142-233 -- RETRY branch: count prior RETRYING events (145-151); count >= MAX_RETRIES (5) -> FAILED (155); else CAS -> RETRYING + event (194-224) and re-enqueue with delay: computeBackoffMs(attempt) (233).
+- payment.processor.ts:147-216 -- RETRY branch: one CAS bumps attempt_count, sets last_error_code, and picks FAILED/RETRYING via a CASE (157-161); attempt_count + 1 > MAX_RETRIES (5) -> FAILED (170), else RETRYING + event; re-enqueue with delay: computeBackoffMs(attempt_count) (214).
 - apps/api/src/worker/backoff.ts:7-8 -- min(1000*2^(attempt-1), 30000) + full jitter (exp/2 + random*exp/2).
 - apps/api/src/bank/circuit-breaker.ts + processor:91,138 -- breaker.allow() short-circuits to RETRY when open (91-93); breaker.record() each attempt (138).
-- RECOVERY: processor:100 -- bank.authorize idempotencyKey: paymentId is STABLE across retries (recovered call == same call, no double charge); :106-110 authorized -> COMPLETE; :245-283 txn2 CAS -> COMPLETED + audit event + outbox payment.completed.
+- RECOVERY: processor:100 -- bank.authorize idempotencyKey: paymentId is STABLE across retries (recovered call == same call, no double charge); :106-110 authorized -> COMPLETE; :223-265 txn2 CAS -> COMPLETED + audit event + outbox payment.completed.
 
 ## Log cmd
 docker compose logs --since 3m worker | grep <paymentId> | grep -iE "RETRY|transition"
 
 ## Db cmd
+# attempt_count + last_error_code on the row (the budget lives here now, not counted from events)
+docker compose exec postgres psql -U payments -d payments -c "SELECT status, attempt_count, last_error_code, version FROM payments WHERE id='<paymentId>';"
+
 # the retry ladder (reason + attempt climb)
 docker compose exec postgres psql -U payments -d payments -c "SELECT to_status, metadata->>'reason' AS reason, metadata->>'attempt' AS attempt, occurred_at FROM payment_events WHERE payment_id='<paymentId>' AND to_status='RETRYING' ORDER BY occurred_at;"
 
@@ -156,6 +163,9 @@ make demo-webhooks   # registers /ok + /fail endpoints, starts the bundled recei
 4. Log cmd -> dispatcher 'webhook delivery created' -> processor 'webhook delivery attempt' (ok / last_error).
 5. Db cmd -> webhook_deliveries: one delivered, one dead (attempts=5, last_error).
 
+## Security caveat (say if asked)
+Webhook endpoints are NOT tenant-scoped -- every active endpoint receives every terminal event (webhook_endpoints has no customer_id). Deliberate scope cut: authn/z is out of scope for this exercise (per the assignment). Production fix: a customer_id on the endpoint + scope the dispatcher fan-out by it, plus per-endpoint authz.
+
 ## UI (React/Next data-flow only)
 - apps/web/src/app/webhooks/page.tsx:11,37 -- usePolling(refresh, 2000) polls listDeliveries + listEndpoints (25-26).
 - webhooks/page.tsx:44-51 -- register() -> createEndpoint(url); :41 secret shown ONCE (only response that exposes it).
@@ -166,6 +176,12 @@ make demo-webhooks   # registers /ok + /fail endpoints, starts the bundled recei
 - apps/api/src/webhooks/webhook.processor.ts:23-122 -- early-return if delivered/dead (30); envelope (37-42); HMAC-SHA256 over `${timestamp}.${rawBody}` (44-47); POST x-webhook-id/-timestamp/-signature (55-65); 'webhook delivery attempt' log (74-83); 2xx -> delivered (85-91); else attempts+1: >=5 -> dead/DLQ (96-104), else failed + backoff re-enqueue (106-120).
 - apps/api/src/webhooks/webhooks.controller.ts:15-20 -- POST register; secret returned ONCE.
 
+## Backend (resilience nets — not in the live beats, mention if asked)
+- apps/api/src/webhooks/webhooks-dispatcher.service.ts:86-93 -- enqueue AFTER commit: the consumer looks the delivery up by id, so a pre-commit enqueue races a read-miss (if (!delivery) return); jobId=d.id keeps it idempotent.
+- apps/api/src/database/schema.ts:88 -- UNIQUE(event_id, endpoint_id) on webhook_deliveries: sender-side idempotency, a redelivered/reaped fan-out can't double-insert a delivery row.
+- apps/api/src/queue/queue.module.ts:14 -- webhooks queue evicts terminal jobs (removeOnComplete/removeOnFail) so a lingering completed/failed job can't wedge the reaper's reconstructed stable jobId.
+- apps/api/src/webhooks/webhook-reaper.service.ts:31-98 -- recovery net for stranded deliveries: claims pending/failed past their due time (68-71, SKIP LOCKED), reconstructs the normal jobId (93), re-enqueues (98) -- the webhook analog of the payment reaper.
+
 ## Log cmd
 docker compose logs --since 5m worker | grep -iE "webhook delivery"
 docker compose --profile webhooks-demo logs webhook-receiver
@@ -173,3 +189,23 @@ docker compose --profile webhooks-demo logs webhook-receiver
 ## Db cmd
 docker compose exec postgres psql -U payments -d payments -c "SELECT id, url, active FROM webhook_endpoints ORDER BY created_at DESC;"
 docker compose exec postgres psql -U payments -d payments -c "SELECT wd.status, e.url, wd.attempts, wd.last_error FROM webhook_deliveries wd JOIN webhook_endpoints e ON e.id=wd.endpoint_id ORDER BY wd.created_at DESC LIMIT 10;"
+
+# part7 - observability (Prometheus metrics)
+
+## Demo
+1. Curl the two /metrics endpoints -> show the four app metrics scraping live (metrics are split by process).
+2. Names the requirement: the assignment asks for an observable platform.
+
+## Backend (metrics split across processes)
+- apps/api/src/app.module.ts:11 -- API exposes /metrics on :3000 via PrometheusModule.
+- apps/api/src/payments/payments.module.ts:9 -- payment_submit_duration_seconds: submit-path latency histogram.
+- apps/api/src/metrics/queue-metrics.service.ts + metrics.module.ts:10 -- payments_queue_depth: gauge polling BullMQ counts.
+- apps/api/src/worker.ts:17-23 -- worker exposes its own /metrics on WORKER_METRICS_PORT (9101).
+- apps/api/src/metrics/worker-metrics.ts:5,11 -- payment_bank_attempts_total (labeled by outcome) + bank_circuit_breaker_state gauge.
+
+## Cmd
+# API metrics: submit latency histogram + queue depth
+curl -s http://localhost:3000/metrics | grep -E "payment_submit_duration_seconds|payments_queue_depth"
+
+# worker metrics: bank attempts by outcome + circuit breaker state
+curl -s http://localhost:9101/metrics | grep -E "payment_bank_attempts_total|bank_circuit_breaker_state"
