@@ -1,5 +1,5 @@
 import {
-    pgEnum, pgTable, text, bigint, integer, timestamp, json, jsonb, unique, boolean
+    pgEnum, pgTable, text, bigint, integer, timestamp, json, jsonb, unique, boolean, primaryKey
 } from 'drizzle-orm/pg-core';
 
 export const paymentStatus = pgEnum('payment_status', [
@@ -50,7 +50,7 @@ export const idempotencyKeys = pgTable('idempotency_keys', {
 }, (t) => ({ uq: unique().on(t.customerId, t.idempotencyKey) }));
 
 export const outbox = pgTable('outbox', {
-    id: text('id').primaryKey(),
+    id: text('id').notNull(),
     aggregateType: text('aggregate_type').notNull(),
     aggregateId: text('aggregate_id').notNull(),
     eventType: text('event_type').notNull(),
@@ -58,7 +58,7 @@ export const outbox = pgTable('outbox', {
     publishedAt: timestamp('published_at', { withTimezone: true }),
     webhookDispatchedAt: timestamp('webhook_dispatched_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
-});
+}, (t) => ({ pk: primaryKey({ columns: [t.id, t.createdAt] }) }));
 
 export const webhookEndpoints = pgTable('webhook_endpoints', {
     id: text('id').primaryKey(),

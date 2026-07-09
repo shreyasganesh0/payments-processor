@@ -100,6 +100,8 @@ export const config = {
         pollMs: num('RELAY_POLL_MS', 5000, { min: 100 }),
         reaperIntervalMs: num('REAPER_INTERVAL_MS', 10_000, { min: 100 }),
         reaperDeadlineMs: num('REAPER_DEADLINE_MS', 60_000, { min: 0 }),
+        outboxCleanupIntervalMs: num('OUTBOX_CLEANUP_INTERVAL_MS', 3_600_000, { min: 1000 }),
+        outboxRetentionDays: num('OUTBOX_RETENTION_DAYS', 7, { min: 1 }),
     },
 
     // ── webhook delivery ──
